@@ -22,4 +22,5 @@
 
 - 프론트엔드: React
 - 백엔드: Express
-- AI 로직: Anthropic API 호출 (AI 손님 + AI 평가자 두 역할 분리)
+- DB: PostgreSQL
+- AI 로직: Anthropic API 호출 (손님 에이전트 + 평가 에이전트 두 역할 분리)
