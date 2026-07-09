@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>대시보드 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+.glass { background:rgba(255,255,255,0.66); border:1px solid rgba(20,23,28,0.07); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; }
+.nav-links { display:flex; align-items:center; gap:28px; }
+.nav-links a { font-size:13.5px; color:#5B616C; text-decoration:none; }
+.nav-links a.current { color:#14171C; font-weight:600; }
+.btn-primary-sm { background:#3D6FE0; color:#fff; font-weight:600; font-size:13px; padding:9px 16px; border-radius:9px; border:none; cursor:pointer; }
+
+.wrap { max-width:1040px; margin:0 auto; padding:8px 6% 100px; }
+.head-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:14px; }
+.head-row h1 { font-size:24px; font-weight:800; letter-spacing:-0.01em; }
+.head-row p { font-size:13.5px; color:#5B616C; margin-top:4px; }
+.industry-tag { display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11.5px; color:#2856C4; background:rgba(61,111,224,0.09); border:1px solid rgba(61,111,224,0.25); padding:5px 12px; border-radius:999px; }
+
+.stat-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:28px; }
+.stat { padding:18px 20px; }
+.stat b { display:block; font-size:22px; font-weight:800; margin-bottom:3px; }
+.stat span { font-size:12px; color:#8A93A0; }
+
+.panel { padding:22px 24px; margin-bottom:20px; }
+.panel-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+.panel-title { font-size:14.5px; font-weight:700; }
+
+table.staff-table { width:100%; border-collapse:collapse; }
+table.staff-table th { text-align:left; font-size:11.5px; color:#8A93A0; font-weight:600; padding:0 10px 10px; border-bottom:1px solid rgba(20,23,28,0.08); }
+table.staff-table td { padding:12px 10px; border-bottom:1px solid rgba(20,23,28,0.06); font-size:13.5px; vertical-align:middle; }
+table.staff-table tr:last-child td { border-bottom:none; }
+.name-cell { display:flex; align-items:center; gap:10px; }
+.avatar-initial { width:30px; height:30px; border-radius:50%; background:rgba(61,111,224,0.12); color:#2856C4; font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.progress-mini { width:90px; height:6px; border-radius:99px; background:rgba(20,23,28,0.08); overflow:hidden; display:inline-block; vertical-align:middle; margin-right:8px; }
+.progress-mini-fill { height:100%; background:linear-gradient(90deg,#3D6FE0,#7FA6FF); }
+.status-chip { font-family:'IBM Plex Mono',monospace; font-size:11px; padding:4px 10px; border-radius:999px; }
+.status-chip.done { background:rgba(29,140,90,0.1); color:#1D8C5A; }
+.status-chip.active { background:rgba(61,111,224,0.1); color:#2856C4; }
+.status-chip.pending { background:rgba(220,160,50,0.12); color:#9A6A0E; }
+.score-cell { font-weight:700; }
+
+.coach-tip { display:flex; align-items:center; gap:14px; }
+.coach-tip img { width:40px; height:40px; object-fit:cover; object-position:50% 10%; border-radius:50%; flex-shrink:0; }
+.coach-tip p { font-size:13px; color:#5B616C; line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="page-bg">
+  <div class="nav">
+    <div class="logo"><div class="logo-mark">A</div><span class="logo-word">albafit</span></div>
+    <div class="nav-links">
+      <a class="current" href="#">대시보드</a>
+      <a href="#">기준 관리</a>
+      <a href="#">리포트</a>
+    </div>
+    <a class="btn-primary-sm" href="staff_invite.html" style="display:inline-block; text-decoration:none;">+ 알바 초대</a>
+  </div>
+
+  <div class="wrap">
+    <div class="head-row">
+      <div>
+        <h1>안녕하세요, 사장님</h1>
+        <p>오늘 2명이 훈련을 진행하고 있어요</p>
+      </div>
+      <span class="industry-tag">☕ 카페 · 디저트 기준 적용중</span>
+    </div>
+
+    <div class="stat-grid">
+      <div class="stat glass"><b>6명</b><span>전체 알바</span></div>
+      <div class="stat glass"><b>91점</b><span>평균 점수</span></div>
+      <div class="stat glass"><b>2명</b><span>훈련 진행중</span></div>
+      <div class="stat glass"><b>1명</b><span>초대 대기중</span></div>
+    </div>
+
+    <div class="panel glass">
+      <div class="panel-top"><span class="panel-title">알바 현황</span></div>
+      <table class="staff-table">
+        <tr>
+          <th>이름</th><th>진행률</th><th>최근 점수</th><th>상태</th>
+        </tr>
+        <tr onclick="location.href='feedback_report.html'" style="cursor:pointer">
+          <td><div class="name-cell"><div class="avatar-initial">이서</div>이서준</div></td>
+          <td><span class="progress-mini"><span class="progress-mini-fill" style="width:100%"></span></span>8/8</td>
+          <td class="score-cell">94점</td>
+          <td><span class="status-chip done">훈련 완료</span></td>
+        </tr>
+        <tr onclick="location.href='feedback_report.html'" style="cursor:pointer">
+          <td><div class="name-cell"><div class="avatar-initial">박지</div>박지호</div></td>
+          <td><span class="progress-mini"><span class="progress-mini-fill" style="width:45%"></span></span>3/8</td>
+          <td class="score-cell">88점</td>
+          <td><span class="status-chip active">훈련중</span></td>
+        </tr>
+        <tr onclick="location.href='feedback_report.html'" style="cursor:pointer">
+          <td><div class="name-cell"><div class="avatar-initial">최유</div>최유나</div></td>
+          <td><span class="progress-mini"><span class="progress-mini-fill" style="width:25%"></span></span>2/8</td>
+          <td class="score-cell">—</td>
+          <td><span class="status-chip active">훈련중</span></td>
+        </tr>
+        <tr onclick="location.href='feedback_report.html'" style="cursor:pointer">
+          <td><div class="name-cell"><div class="avatar-initial">김민</div>김민지</div></td>
+          <td><span class="progress-mini"><span class="progress-mini-fill" style="width:0%"></span></span>0/8</td>
+          <td class="score-cell">—</td>
+          <td><span class="status-chip pending">응답 대기</span></td>
+        </tr>
+      </table>
+    </div>
+
+    <div class="panel glass coach-tip">
+      <img src="../../img/mascot-coach.png" alt="">
+      <p><b style="color:#14171C;">박지호</b>님이 컴플레인 대응에서 계속 낮은 점수를 받고 있어요. 이 항목만 다시 훈련해보시겠어요?</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

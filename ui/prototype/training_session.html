@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>AI 훈련 세션 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+.glass { background:rgba(255,255,255,0.66); border:1px solid rgba(20,23,28,0.07); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; padding:20px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; }
+.session-meta { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8A93A0; }
+
+.wrap { max-width:960px; margin:0 auto; padding:8px 8% 60px; }
+.progress-row { display:flex; align-items:center; gap:14px; margin-bottom:24px; }
+.progress-track { flex:1; height:6px; border-radius:99px; background:rgba(20,23,28,0.08); overflow:hidden; }
+.progress-fill { width:38%; height:100%; background:linear-gradient(90deg,#3D6FE0,#7FA6FF); }
+.progress-label { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#5B616C; flex-shrink:0; }
+
+.session-grid { display:grid; grid-template-columns:1.4fr 1fr; gap:20px; align-items:start; }
+
+.chat-card { padding:24px; }
+.scenario-tag { display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11px; color:#2856C4; background:rgba(61,111,224,0.09); border:1px solid rgba(61,111,224,0.25); padding:4px 10px; border-radius:999px; margin-bottom:18px; }
+.msg { max-width:78%; padding:11px 14px; border-radius:14px; font-size:14px; line-height:1.6; margin-bottom:12px; }
+.msg.customer { background:rgba(20,23,28,0.045); border-bottom-left-radius:4px; }
+.msg.staff { background:#3D6FE0; color:#fff; margin-left:auto; border-bottom-right-radius:4px; }
+
+.input-bar { display:flex; align-items:center; gap:10px; margin-top:20px; padding:10px 10px 10px 16px; background:rgba(255,255,255,0.85); border:1px solid rgba(20,23,28,0.12); border-radius:14px; }
+.input-bar input { flex:1; border:none; background:transparent; font-size:14px; font-family:'Pretendard'; color:#14171C; }
+.input-bar input:focus { outline:none; }
+.mic-btn { width:36px; height:36px; border-radius:50%; background:#3D6FE0; display:flex; align-items:center; justify-content:center; color:#fff; flex-shrink:0; cursor:pointer; }
+.send-btn { background:#14171C; color:#fff; font-weight:600; font-size:13px; padding:9px 18px; border-radius:10px; border:none; cursor:pointer; flex-shrink:0; }
+
+.side-col { display:flex; flex-direction:column; gap:14px; }
+.mentor-card { padding:20px 22px; display:flex; gap:14px; align-items:flex-start; }
+.mentor-card img { width:42px; height:42px; object-fit:cover; object-position:50% 10%; border-radius:50%; flex-shrink:0; }
+.mentor-card h4 { font-size:13.5px; font-weight:700; margin-bottom:5px; }
+.mentor-card p { font-size:12.5px; color:#5B616C; line-height:1.6; }
+
+.rule-check-list { padding:20px 22px; }
+.rule-check-list .title { font-size:13px; font-weight:700; margin-bottom:14px; }
+.rc-item { display:flex; align-items:center; gap:10px; font-size:13px; color:#33363C; padding:8px 0; border-top:1px solid rgba(20,23,28,0.06); }
+.rc-item:first-of-type { border-top:none; }
+.rc-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.rc-dot.ok { background:#1D8C5A; }
+.rc-dot.wait { background:rgba(20,23,28,0.15); }
+
+.metric-mini { padding:18px 22px; display:flex; justify-content:space-between; }
+.metric-mini div b { display:block; font-size:19px; font-weight:800; }
+.metric-mini div span { font-size:11.5px; color:#8A93A0; }
+</style>
+</head>
+<body>
+<div class="page-bg">
+  <div class="nav">
+    <div class="logo"><div class="logo-mark">A</div><span class="logo-word">albafit</span></div>
+    <span class="session-meta">김민지 · 카페 훈련 세션 · 3 / 8</span>
+    <a href="feedback_report.html" style="display:inline-block; text-decoration:none; background:#14171C; color:#fff; font-weight:600; font-size:12.5px; padding:8px 16px; border-radius:9px;">훈련 종료</a>
+  </div>
+
+  <div class="wrap">
+    <div class="progress-row">
+      <div class="progress-track"><div class="progress-fill"></div></div>
+      <span class="progress-label">3 / 8 상황</span>
+    </div>
+
+    <div class="session-grid">
+      <div class="chat-card glass">
+        <span class="scenario-tag">☕ 시나리오 · 환불 요청</span>
+        <div class="msg customer">저기요, 이거 환불되나요? 뜯었는데.</div>
+        <div class="msg staff">확인 도와드릴게요, 혹시 영수증 있으실까요?</div>
+        <div class="msg customer">네 여기요.</div>
+
+        <div class="input-bar">
+          <div class="mic-btn">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0"/><path d="M12 19v3"/></svg>
+          </div>
+          <input type="text" placeholder="손님에게 답할 말을 입력하세요">
+          <button class="send-btn">보내기</button>
+        </div>
+      </div>
+
+      <div class="side-col">
+        <div class="mentor-card glass">
+          <img src="../../img/mascot-coach.png" alt="">
+          <div>
+            <h4>AI 트레이너 힌트</h4>
+            <p>개봉 상품은 교환만 가능하다는 매장 기준을 안내할 차례예요. "죄송하지만"으로 시작해보세요.</p>
+          </div>
+        </div>
+
+        <div class="rule-check-list glass">
+          <div class="title">이번 세션 체크 기준</div>
+          <div class="rc-item"><div class="rc-dot ok"></div>인사말</div>
+          <div class="rc-item"><div class="rc-dot ok"></div>확인 절차 순서</div>
+          <div class="rc-item"><div class="rc-dot wait"></div>정중한 거절 표현</div>
+          <div class="rc-item"><div class="rc-dot wait"></div>대안 제시</div>
+        </div>
+
+        <div class="metric-mini glass">
+          <div><b>2/4</b><span>기준 충족</span></div>
+          <div><b>01:48</b><span>경과 시간</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
