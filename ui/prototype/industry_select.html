@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>매장 업종 선택 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+
+.glass {
+  background:rgba(255,255,255,0.66);
+  border:1px solid rgba(20,23,28,0.07);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-radius:20px;
+}
+
+/* ---------- NAV ---------- */
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; color:#14171C; }
+.nav-step { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8A93A0; }
+
+/* ---------- PROGRESS ---------- */
+.progress-wrap { max-width:520px; margin:0 auto; padding:0 8% 8px; display:flex; gap:8px; }
+.progress-bar { flex:1; height:4px; border-radius:99px; background:rgba(20,23,28,0.08); overflow:hidden; }
+.progress-bar.active::after { content:''; display:block; height:100%; width:100%; background:linear-gradient(90deg,#3D6FE0,#7FA6FF); }
+.progress-bar.upcoming::after { content:''; display:block; height:100%; width:0%; }
+
+/* ---------- MAIN ---------- */
+.wrap { max-width:640px; margin:0 auto; padding:36px 8% 100px; text-align:center; }
+.mascot-hero { width:76px; height:76px; object-fit:cover; object-position:50% 10%; border-radius:50%; margin:0 auto 20px; display:block; }
+.eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#3D6FE0; margin-bottom:14px; letter-spacing:0.03em; }
+h1 { font-size:28px; font-weight:800; letter-spacing:-0.01em; margin-bottom:12px; }
+.sub { font-size:14.5px; color:#5B616C; line-height:1.7; margin-bottom:40px; }
+
+.grid { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-bottom:32px; }
+.industry-card {
+  padding:26px 14px 20px; cursor:pointer; text-align:center;
+  transition:border-color .15s ease, background .15s ease;
+}
+.industry-card svg { width:26px; height:26px; margin-bottom:14px; stroke:#5B616C; }
+.industry-card span { display:block; font-size:14px; font-weight:600; color:#33363C; }
+.industry-card.selected {
+  background:rgba(61,111,224,0.09);
+  border-color:#3D6FE0;
+}
+.industry-card.selected svg { stroke:#3D6FE0; }
+.industry-card.selected span { color:#14171C; }
+.check {
+  width:16px; height:16px; border-radius:50%; border:1px solid rgba(20,23,28,0.15);
+  margin:12px auto 0; display:flex; align-items:center; justify-content:center;
+}
+.industry-card.selected .check { background:#3D6FE0; border-color:#3D6FE0; }
+.industry-card.selected .check::after { content:''; width:6px; height:3px; border-left:1.5px solid #fff; border-bottom:1.5px solid #fff; transform:rotate(-45deg) translateY(-1px); }
+
+.hint {
+  display:flex; align-items:center; gap:12px; padding:14px 18px; margin-bottom:32px;
+  font-size:13px; color:#5B616C; text-align:left;
+}
+.hint img { width:28px; height:28px; object-fit:cover; object-position:50% 12%; border-radius:50%; flex-shrink:0; }
+.hint b { color:#14171C; font-weight:600; }
+
+.btn-primary {
+  background:#3D6FE0; color:#fff; font-weight:700; font-size:14.5px;
+  padding:13px 38px; border-radius:10px; border:none; cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div class="page-bg">
+
+  <div class="nav">
+    <div class="logo">
+      <div class="logo-mark">A</div>
+      <span class="logo-word">albafit</span>
+    </div>
+    <span class="nav-step">STEP 1 / 3</span>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar active"></div>
+    <div class="progress-bar upcoming"></div>
+    <div class="progress-bar upcoming"></div>
+  </div>
+
+  <div class="wrap">
+    <img class="mascot-hero" src="../../img/mascot-greeting.png" alt="">
+    <div class="eyebrow">매장 정보 · 업종 선택</div>
+    <h1>어떤 업종이신가요?</h1>
+    <p class="sub">업종에 맞는 응대 예시를 먼저 보여드리고,<br>그 예시를 바탕으로 매장 기준을 다음 화면에서 확정하실 수 있어요.</p>
+
+    <div class="grid">
+      <div class="industry-card glass selected">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M4 8h13v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V8Z"/><path d="M17 9h1.5a2.5 2.5 0 0 1 0 5H17"/><path d="M7 2c0 1-1 1-1 2s1 1 1 2"/><path d="M11 2c0 1-1 1-1 2s1 1 1 2"/></svg>
+        <span>카페 · 디저트</span>
+        <div class="check"></div>
+      </div>
+      <div class="industry-card glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M3 9l1.5-5h15L21 9"/><path d="M3 9h18v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z"/><path d="M9 13a3 3 0 0 0 6 0"/></svg>
+        <span>편의점</span>
+        <div class="check"></div>
+      </div>
+      <div class="industry-card glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M6 2v8a2 2 0 0 0 4 0V2"/><path d="M8 10v12"/><path d="M17 2c-2 0-3 2-3 5s1 4 3 4v11"/></svg>
+        <span>음식점 · 외식</span>
+        <div class="check"></div>
+      </div>
+      <div class="industry-card glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><path d="M6 2l6 4 6-4"/><path d="M6 2c0 3 2 4 2 4l-4 2v14h16V8l-4-2s2-1 2-4"/></svg>
+        <span>마트 · 유통</span>
+        <div class="check"></div>
+      </div>
+      <div class="industry-card glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><rect x="3" y="4" width="18" height="13" rx="1.5"/><path d="M8 21h8"/><path d="M12 17v4"/><circle cx="12" cy="10.5" r="2.2"/></svg>
+        <span>PC방 · 오락실</span>
+        <div class="check"></div>
+      </div>
+      <div class="industry-card glass">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="1.6"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4L8.5 15.5"/><path d="M14.5 9.5L20 15"/></svg>
+        <span>뷰티 · 헤어</span>
+        <div class="check"></div>
+      </div>
+    </div>
+
+    <div class="hint glass">
+      <img src="../../img/mascot-coach.png" alt="">
+      <span><b>카페</b>를 선택하면 커스텀 음료·포장·매장 이용 관련 응대 예시가 다음 화면에 먼저 채워져요.</span>
+    </div>
+
+    <a class="btn-primary" href="rules_preview.html" style="display:inline-block; text-decoration:none;">다음 →</a>
+  </div>
+
+</div>
+</body>
+</html>

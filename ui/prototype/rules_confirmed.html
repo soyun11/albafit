@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>규정 확정 완료 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+
+.glass {
+  background:rgba(255,255,255,0.66);
+  border:1px solid rgba(20,23,28,0.07);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-radius:20px;
+}
+
+/* ---------- NAV ---------- */
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; color:#14171C; }
+.nav-step { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8A93A0; }
+
+/* ---------- PROGRESS ---------- */
+.progress-wrap { max-width:520px; margin:0 auto; padding:0 8% 8px; display:flex; gap:8px; }
+.progress-bar { flex:1; height:4px; border-radius:99px; background:rgba(20,23,28,0.08); overflow:hidden; }
+.progress-bar.done::after { content:''; display:block; height:100%; width:100%; background:linear-gradient(90deg,#3D6FE0,#7FA6FF); }
+
+/* ---------- MAIN ---------- */
+.wrap { max-width:620px; margin:0 auto; padding:56px 8% 100px; text-align:center; }
+.mascot-hero { width:120px; height:120px; object-fit:cover; object-position:50% 8%; border-radius:50%; margin:0 auto 26px; display:block; }
+.eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#3D6FE0; margin-bottom:14px; letter-spacing:0.03em; }
+h1 { font-size:28px; font-weight:800; letter-spacing:-0.01em; margin-bottom:12px; }
+.sub { font-size:14.5px; color:#5B616C; line-height:1.7; margin-bottom:36px; }
+
+.summary-card { padding:26px 28px; text-align:left; margin-bottom:16px; }
+.summary-top { display:flex; align-items:center; justify-content:space-between; margin-bottom:18px; }
+.summary-title { font-size:15px; font-weight:700; }
+.industry-tag {
+  display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:11.5px;
+  color:#2856C4; background:rgba(61,111,224,0.1); border:1px solid rgba(61,111,224,0.28);
+  padding:4px 10px; border-radius:999px;
+}
+.rule-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-top:1px solid rgba(20,23,28,0.06); font-size:13.5px; color:#33363C; }
+.rule-row:first-of-type { border-top:none; }
+.rule-check { width:16px; height:16px; border-radius:50%; background:#1D8C5A; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+.rule-check::after { content:''; width:6px; height:3px; border-left:1.5px solid #fff; border-bottom:1.5px solid #fff; transform:rotate(-45deg) translateY(-1px); }
+.rule-row.off { color:#8A93A0; }
+.rule-row.off .rule-check { background:rgba(20,23,28,0.12); }
+.rule-row.off .rule-check::after { border-color:rgba(255,255,255,0.7); }
+
+.next-card { padding:22px 26px; text-align:left; display:flex; gap:16px; align-items:flex-start; margin-bottom:36px; }
+.next-card img { width:44px; height:44px; object-fit:cover; object-position:50% 10%; border-radius:50%; flex-shrink:0; }
+.next-card h4 { font-size:14.5px; font-weight:700; margin-bottom:4px; }
+.next-card p { font-size:13px; color:#5B616C; line-height:1.6; }
+
+.btn-primary {
+  background:#3D6FE0; color:#fff; font-weight:700; font-size:14.5px;
+  padding:14px 34px; border-radius:10px; border:none; cursor:pointer;
+}
+.link-edit { display:block; margin-top:16px; font-size:13px; color:#5B616C; text-decoration:underline; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="page-bg">
+
+  <div class="nav">
+    <div class="logo">
+      <div class="logo-mark">A</div>
+      <span class="logo-word">albafit</span>
+    </div>
+    <span class="nav-step">STEP 3 / 3</span>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar done"></div>
+    <div class="progress-bar done"></div>
+    <div class="progress-bar done"></div>
+  </div>
+
+  <div class="wrap">
+    <img class="mascot-hero" src="../../img/mascot-approve.png" alt="">
+    <div class="eyebrow">매장 정보 · 확정 완료</div>
+    <h1>기준이 확정됐어요</h1>
+    <p class="sub">이제부터 새로 들어오는 알바는 아래 기준으로<br>albafit이 자동으로 훈련시켜 드려요.</p>
+
+    <div class="summary-card glass">
+      <div class="summary-top">
+        <span class="summary-title">카페 · 디저트 응대 기준</span>
+        <span class="industry-tag">☕ 3개 항목 사용 중</span>
+      </div>
+      <div class="rule-row">
+        <div class="rule-check"></div>
+        <span>인사말 — "어서오세요", "감사합니다, 좋은 하루 되세요"</span>
+      </div>
+      <div class="rule-row">
+        <div class="rule-check"></div>
+        <span>커스텀 음료 요청 — 먼저 "네 가능해요", 추가 비용은 결제 전 안내</span>
+      </div>
+      <div class="rule-row">
+        <div class="rule-check"></div>
+        <span>포장 · 매장 이용 확인 — 주문 시 빠짐없이 먼저 물어보기</span>
+      </div>
+      <div class="rule-row off">
+        <div class="rule-check"></div>
+        <span>컴플레인 대응 — 제외됨 (매니저가 직접 응대)</span>
+      </div>
+    </div>
+
+    <div class="next-card glass">
+      <img src="../../img/mascot-coach.png" alt="">
+      <div>
+        <h4>다음엔 이렇게 진행돼요</h4>
+        <p>새 알바를 초대하면 albafit이 위 기준으로 실전 롤플레이를 시작하고, 훈련이 끝나면 교정 피드백 리포트를 사장님께 보내드려요.</p>
+      </div>
+    </div>
+
+    <a class="btn-primary" href="staff_invite.html" style="display:inline-block; text-decoration:none;">첫 알바 초대하기 →</a>
+    <a class="link-edit" href="rules_preview.html">기준 다시 수정하기</a>
+  </div>
+
+</div>
+</body>
+</html>

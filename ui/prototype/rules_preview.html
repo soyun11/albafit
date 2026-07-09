@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>매장 규정 예시 확인 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+
+.glass {
+  background:rgba(255,255,255,0.66);
+  border:1px solid rgba(20,23,28,0.07);
+  backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
+  border-radius:20px;
+}
+
+/* ---------- NAV ---------- */
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF);
+  display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; color:#14171C; }
+.nav-step { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#8A93A0; }
+
+/* ---------- PROGRESS ---------- */
+.progress-wrap { max-width:520px; margin:0 auto; padding:0 8% 8px; display:flex; gap:8px; }
+.progress-bar { flex:1; height:4px; border-radius:99px; background:rgba(20,23,28,0.08); overflow:hidden; }
+.progress-bar.done::after,.progress-bar.active::after { content:''; display:block; height:100%; width:100%; background:linear-gradient(90deg,#3D6FE0,#7FA6FF); }
+.progress-bar.upcoming::after { content:''; display:block; height:100%; width:0%; }
+
+/* ---------- MAIN ---------- */
+.wrap { max-width:680px; margin:0 auto; padding:40px 8% 100px; }
+.head { text-align:center; margin-bottom:12px; }
+.mascot-hero { width:64px; height:64px; object-fit:cover; object-position:50% 10%; border-radius:50%; margin:0 auto 18px; display:block; }
+.eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#3D6FE0; margin-bottom:14px; letter-spacing:0.03em; }
+h1 { font-size:26px; font-weight:800; letter-spacing:-0.01em; margin-bottom:12px; }
+.sub { font-size:14.5px; color:#5B616C; line-height:1.7; margin-bottom:8px; }
+.industry-tag {
+  display:inline-flex; align-items:center; gap:6px; font-family:'IBM Plex Mono',monospace; font-size:12px;
+  color:#2856C4; background:rgba(61,111,224,0.09); border:1px solid rgba(61,111,224,0.28);
+  padding:5px 12px; border-radius:999px; margin-bottom:34px;
+}
+
+.rule-card { padding:22px 24px; margin-bottom:14px; }
+.rule-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:14px; gap:12px; }
+.rule-top-left { display:flex; align-items:flex-start; gap:12px; }
+.rule-top-left img { width:32px; height:32px; object-fit:cover; object-position:50% 12%; border-radius:50%; flex-shrink:0; margin-top:1px; }
+.rule-label { font-family:'IBM Plex Mono',monospace; font-size:11px; color:#3D6FE0; margin-bottom:6px; letter-spacing:0.03em; }
+.rule-title { font-size:16px; font-weight:700; color:#14171C; }
+
+.switch { width:38px; height:22px; border-radius:99px; background:#3D6FE0; position:relative; flex-shrink:0; cursor:pointer; }
+.switch::after { content:''; position:absolute; top:2px; right:2px; width:18px; height:18px; border-radius:50%; background:#fff; }
+.switch.off { background:rgba(20,23,28,0.14); }
+.switch.off::after { left:2px; right:auto; }
+
+.rule-example {
+  background:rgba(20,23,28,0.03); border:1px dashed rgba(20,23,28,0.14); border-radius:12px;
+  padding:14px 16px; font-size:13.5px; line-height:1.7; color:#33363C; margin-left:44px;
+}
+.rule-meta { display:flex; align-items:center; gap:6px; margin-top:10px; margin-left:44px; font-size:12px; color:#8A93A0; }
+
+.footer-bar {
+  display:flex; align-items:center; justify-content:space-between; margin-top:32px;
+  padding-top:24px; border-top:1px solid rgba(20,23,28,0.08); flex-wrap:wrap; gap:14px;
+}
+.footer-note { font-size:12.5px; color:#8A93A0; }
+.footer-actions { display:flex; gap:10px; }
+.btn-ghost {
+  background:rgba(255,255,255,0.7); color:#14171C; font-weight:600; font-size:14px;
+  padding:12px 22px; border-radius:10px; border:1px solid rgba(20,23,28,0.12); cursor:pointer;
+}
+.btn-primary {
+  background:#3D6FE0; color:#fff; font-weight:700; font-size:14px;
+  padding:12px 26px; border-radius:10px; border:none; cursor:pointer;
+}
+</style>
+</head>
+<body>
+<div class="page-bg">
+
+  <div class="nav">
+    <div class="logo">
+      <div class="logo-mark">A</div>
+      <span class="logo-word">albafit</span>
+    </div>
+    <span class="nav-step">STEP 2 / 3</span>
+  </div>
+
+  <div class="progress-wrap">
+    <div class="progress-bar done"></div>
+    <div class="progress-bar active"></div>
+    <div class="progress-bar upcoming"></div>
+  </div>
+
+  <div class="wrap">
+    <div class="head">
+      <img class="mascot-hero" src="../../img/mascot-coach.png" alt="">
+      <div class="eyebrow">매장 정보 · 규정 예시 확인</div>
+      <h1>이렇게 응대하면 어떨까요?</h1>
+      <p class="sub">카페에서 자주 나오는 상황 기준으로 예시를 준비했어요.<br>필요 없는 항목은 끄고, 문장은 직접 수정해서 우리 매장 기준으로 만드세요.</p>
+      <span class="industry-tag">☕ 카페 · 디저트 기준</span>
+    </div>
+
+    <div class="rule-card glass">
+      <div class="rule-top">
+        <div class="rule-top-left">
+          <img src="../../img/mascot-approve.png" alt="">
+          <div>
+            <div class="rule-label">GREETING</div>
+            <div class="rule-title">인사말</div>
+          </div>
+        </div>
+        <div class="switch"></div>
+      </div>
+      <div class="rule-example">"어서오세요, 주문 도와드릴게요"로 시작하고, 손님이 나갈 땐 "감사합니다, 좋은 하루 되세요"로 마무리해요.</div>
+      <div class="rule-meta"><span class="mono">EDITABLE</span>&nbsp;· 직접 문구를 수정할 수 있어요</div>
+    </div>
+
+    <div class="rule-card glass">
+      <div class="rule-top">
+        <div class="rule-top-left">
+          <img src="../../img/mascot-approve.png" alt="">
+          <div>
+            <div class="rule-label">CUSTOM ORDER</div>
+            <div class="rule-title">커스텀 음료 요청</div>
+          </div>
+        </div>
+        <div class="switch"></div>
+      </div>
+      <div class="rule-example">시럽·얼음량 등 변경 요청은 먼저 "네 가능해요"로 답한 뒤, 추가 비용이 있으면 결제 전에 안내해요.</div>
+      <div class="rule-meta"><span class="mono">EDITABLE</span>&nbsp;· 직접 문구를 수정할 수 있어요</div>
+    </div>
+
+    <div class="rule-card glass">
+      <div class="rule-top">
+        <div class="rule-top-left">
+          <img src="../../img/mascot-approve.png" alt="">
+          <div>
+            <div class="rule-label">TAKEOUT / STAY</div>
+            <div class="rule-title">포장 · 매장 이용 확인</div>
+          </div>
+        </div>
+        <div class="switch"></div>
+      </div>
+      <div class="rule-example">주문받을 때 "포장이세요, 매장에서 드시고 가세요?"를 빠짐없이 먼저 물어봐요.</div>
+      <div class="rule-meta"><span class="mono">EDITABLE</span>&nbsp;· 직접 문구를 수정할 수 있어요</div>
+    </div>
+
+    <div class="rule-card glass">
+      <div class="rule-top">
+        <div class="rule-top-left">
+          <img src="../../img/mascot-confused.png" alt="">
+          <div>
+            <div class="rule-label">COMPLAINT</div>
+            <div class="rule-title">컴플레인 대응</div>
+          </div>
+        </div>
+        <div class="switch off"></div>
+      </div>
+      <div class="rule-example">맛·품질 관련 컴플레인은 "불편 드려 죄송해요"로 먼저 공감하고, 재제조 또는 환불 여부는 매니저에게 확인 후 안내해요.</div>
+      <div class="rule-meta"><span class="mono">꺼짐</span>&nbsp;· 이 매장은 매니저가 직접 응대해요</div>
+    </div>
+
+    <div class="footer-bar">
+      <span class="footer-note">4개 중 3개 사용 · 언제든 다시 수정할 수 있어요</span>
+      <div class="footer-actions">
+        <a class="btn-ghost" href="industry_select.html" style="display:inline-block; text-decoration:none;">← 업종 다시 선택</a>
+        <a class="btn-primary" href="rules_confirmed.html" style="display:inline-block; text-decoration:none;">이 기준으로 확정하기 →</a>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

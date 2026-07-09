@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>피드백 리포트 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+.glass { background:rgba(255,255,255,0.66); border:1px solid rgba(20,23,28,0.07); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; }
+.nav-link { font-size:13.5px; color:#5B616C; text-decoration:none; }
+
+.wrap { max-width:720px; margin:0 auto; padding:16px 8% 100px; }
+
+.summary-card { padding:32px; display:flex; align-items:center; gap:24px; margin-bottom:20px; }
+.summary-card img { width:76px; height:76px; object-fit:cover; object-position:50% 8%; border-radius:50%; flex-shrink:0; }
+.summary-text .eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#3D6FE0; margin-bottom:8px; letter-spacing:0.03em; }
+.summary-text h1 { font-size:22px; font-weight:800; margin-bottom:6px; }
+.summary-text p { font-size:13.5px; color:#5B616C; }
+.score-badge { margin-left:auto; text-align:center; flex-shrink:0; }
+.score-badge b { display:block; font-size:34px; font-weight:800; color:#14171C; }
+.score-badge span { font-size:11.5px; color:#8A93A0; }
+
+.metric-row { display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:24px; }
+.metric { padding:16px 18px; text-align:center; }
+.metric b { display:block; font-size:20px; font-weight:800; }
+.metric span { font-size:11.5px; color:#8A93A0; }
+
+.section-label { font-size:15px; font-weight:700; margin-bottom:14px; }
+.rule-report { padding:20px 22px; margin-bottom:12px; }
+.rr-top { display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+.rr-top img { width:28px; height:28px; object-fit:cover; object-position:50% 12%; border-radius:50%; flex-shrink:0; }
+.rr-title { font-size:14.5px; font-weight:700; }
+.rr-result { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:4px 10px; border-radius:999px; flex-shrink:0; }
+.rr-result.good { background:rgba(29,140,90,0.1); color:#1D8C5A; }
+.rr-result.improve { background:rgba(220,160,50,0.12); color:#9A6A0E; }
+.rr-detail { font-size:13.5px; color:#33363C; line-height:1.7; margin-left:40px; }
+.rr-quote { background:rgba(20,23,28,0.03); border-left:2px solid rgba(20,23,28,0.15); border-radius:0; padding:8px 12px; margin:8px 0 8px 40px; font-size:13px; color:#5B616C; font-style:normal; }
+
+.coach-note { padding:22px 24px; display:flex; gap:16px; align-items:flex-start; margin-top:20px; margin-bottom:32px; }
+.coach-note img { width:44px; height:44px; object-fit:cover; object-position:50% 10%; border-radius:50%; flex-shrink:0; }
+.coach-note h4 { font-size:14px; font-weight:700; margin-bottom:5px; }
+.coach-note p { font-size:13px; color:#5B616C; line-height:1.7; }
+
+.actions { display:flex; gap:10px; }
+.btn-ghost { background:rgba(255,255,255,0.7); color:#14171C; font-weight:600; font-size:14px; padding:12px 22px; border-radius:10px; border:1px solid rgba(20,23,28,0.12); cursor:pointer; flex:1; }
+.btn-primary { background:#3D6FE0; color:#fff; font-weight:700; font-size:14px; padding:12px 22px; border-radius:10px; border:none; cursor:pointer; flex:1; }
+</style>
+</head>
+<body>
+<div class="page-bg">
+  <div class="nav">
+    <div class="logo"><div class="logo-mark">A</div><span class="logo-word">albafit</span></div>
+    <a class="nav-link" href="my_progress.html">내 현황으로 돌아가기</a>
+  </div>
+
+  <div class="wrap">
+    <div class="summary-card glass">
+      <img src="../../img/mascot-approve.png" alt="">
+      <div class="summary-text">
+        <div class="eyebrow">훈련 결과 · 김민지</div>
+        <h1>오늘 훈련, 잘하셨어요</h1>
+        <p>카페 · 디저트 기준 8개 상황 완료</p>
+      </div>
+      <div class="score-badge"><b>94점</b><span>기준 부합도</span></div>
+    </div>
+
+    <div class="metric-row">
+      <div class="metric glass"><b>7/8</b><span>기준 충족 상황</span></div>
+      <div class="metric glass"><b>3건</b><span>교정 피드백</span></div>
+      <div class="metric glass"><b>18분</b><span>총 훈련 시간</span></div>
+    </div>
+
+    <div class="section-label">상황별 상세 피드백</div>
+
+    <div class="rule-report glass">
+      <div class="rr-top">
+        <img src="../../img/mascot-approve.png" alt="">
+        <span class="rr-title">인사말</span>
+        <span class="rr-result good">잘함</span>
+      </div>
+      <div class="rr-detail">첫 인사와 마무리 인사 모두 매장 기준 그대로 사용했어요.</div>
+    </div>
+
+    <div class="rule-report glass">
+      <div class="rr-top">
+        <img src="../../img/mascot-confused.png" alt="">
+        <span class="rr-title">컴플레인 대응</span>
+        <span class="rr-result improve">개선 필요</span>
+      </div>
+      <div class="rr-detail">거절 표현 앞에 공감 문구가 빠졌어요.</div>
+      <div class="rr-quote">"개봉 상품은 교환만 가능한 점 참고 부탁드려요!"</div>
+      <div class="rr-detail">→ "불편 드려 죄송해요, 다만 개봉 상품은 교환으로 도와드리고 있어요"처럼 공감을 먼저 넣어보세요.</div>
+    </div>
+
+    <div class="rule-report glass">
+      <div class="rr-top">
+        <img src="../../img/mascot-approve.png" alt="">
+        <span class="rr-title">커스텀 음료 요청</span>
+        <span class="rr-result good">잘함</span>
+      </div>
+      <div class="rr-detail">추가 비용 안내를 결제 전에 정확히 전달했어요.</div>
+    </div>
+
+    <div class="coach-note glass">
+      <img src="../../img/mascot-coach.png" alt="">
+      <div>
+        <h4>AI 트레이너 코멘트</h4>
+        <p>전체적으로 안정적이에요. 컴플레인 상황에서 공감 표현만 습관을 들이면 다음엔 만점에 가까울 거예요.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <a class="btn-ghost" href="training_session.html" style="display:inline-block; text-decoration:none; text-align:center;">다시 훈련하기</a>
+      <button class="btn-primary">리포트 사장님께 공유</button>
+    </div>
+  </div>
+</div>
+</body>
+</html>

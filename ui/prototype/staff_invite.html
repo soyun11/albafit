@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>알바 초대하기 - albafit</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap');
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Pretendard',-apple-system,sans-serif; color:#14171C; }
+.mono { font-family:'IBM Plex Mono',monospace; }
+.page-bg {
+  min-height:100vh;
+  background:
+    radial-gradient(700px 500px at 15% -10%, rgba(61,111,224,0.10), transparent 60%),
+    radial-gradient(600px 500px at 90% 5%, rgba(127,166,255,0.10), transparent 55%),
+    radial-gradient(900px 700px at 50% 120%, rgba(61,111,224,0.06), transparent 60%),
+    #F4F5F7;
+}
+.glass { background:rgba(255,255,255,0.66); border:1px solid rgba(20,23,28,0.07); backdrop-filter:blur(18px); -webkit-backdrop-filter:blur(18px); border-radius:20px; }
+.nav { display:flex; align-items:center; justify-content:space-between; padding:22px 8%; }
+.logo { display:flex; align-items:center; gap:9px; }
+.logo-mark { width:28px; height:28px; border-radius:8px; background:linear-gradient(135deg,#3D6FE0,#7FA6FF); display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; color:#fff; }
+.logo-word { font-size:16px; font-weight:800; letter-spacing:-0.01em; }
+.nav-link { font-size:13.5px; color:#5B616C; text-decoration:none; }
+
+.wrap { max-width:640px; margin:0 auto; padding:24px 8% 100px; }
+.head { text-align:center; margin-bottom:32px; }
+.mascot-hero { width:72px; height:72px; object-fit:cover; object-position:50% 10%; border-radius:50%; margin:0 auto 18px; display:block; }
+.eyebrow { font-family:'IBM Plex Mono',monospace; font-size:12px; color:#3D6FE0; margin-bottom:14px; letter-spacing:0.03em; }
+h1 { font-size:26px; font-weight:800; letter-spacing:-0.01em; margin-bottom:10px; }
+.sub { font-size:14.5px; color:#5B616C; line-height:1.7; }
+
+.invite-card { padding:26px 28px; margin-bottom:24px; }
+.field-row { display:flex; gap:10px; margin-bottom:12px; }
+.field { flex:1; }
+.field label { display:block; font-size:12.5px; font-weight:600; color:#5B616C; margin-bottom:6px; }
+.field input {
+  width:100%; padding:11px 14px; border-radius:10px; border:1px solid rgba(20,23,28,0.14);
+  background:rgba(255,255,255,0.8); font-size:14px; font-family:'Pretendard'; color:#14171C;
+}
+.field input:focus { outline:none; border-color:#3D6FE0; }
+.btn-primary { background:#3D6FE0; color:#fff; font-weight:700; font-size:14px; padding:12px 22px; border-radius:10px; border:none; cursor:pointer; width:100%; margin-top:6px; }
+
+.link-row { display:flex; align-items:center; gap:10px; padding:12px 14px; background:rgba(20,23,28,0.03); border:1px dashed rgba(20,23,28,0.14); border-radius:10px; margin-top:18px; }
+.link-row span { flex:1; font-family:'IBM Plex Mono',monospace; font-size:12.5px; color:#5B616C; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.btn-copy { background:rgba(255,255,255,0.9); border:1px solid rgba(20,23,28,0.12); border-radius:8px; padding:7px 14px; font-size:12.5px; font-weight:600; cursor:pointer; flex-shrink:0; }
+
+.section-label { font-size:13px; font-weight:700; color:#14171C; margin-bottom:14px; }
+.invitee-row { display:flex; align-items:center; gap:12px; padding:14px 18px; margin-bottom:10px; }
+.avatar-initial { width:36px; height:36px; border-radius:50%; background:rgba(61,111,224,0.12); color:#2856C4; font-weight:700; font-size:13px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.invitee-name { font-size:14px; font-weight:600; }
+.invitee-meta { font-size:12px; color:#8A93A0; }
+.status-chip { margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:4px 10px; border-radius:999px; flex-shrink:0; }
+.status-chip.pending { background:rgba(220,160,50,0.12); color:#9A6A0E; }
+.status-chip.active { background:rgba(29,140,90,0.1); color:#1D8C5A; }
+</style>
+</head>
+<body>
+<div class="page-bg">
+  <div class="nav">
+    <div class="logo"><div class="logo-mark">A</div><span class="logo-word">albafit</span></div>
+    <a class="nav-link" href="dashboard.html">대시보드로 돌아가기</a>
+  </div>
+
+  <div class="wrap">
+    <div class="head">
+      <img class="mascot-hero" src="../../img/mascot-greeting.png" alt="">
+      <div class="eyebrow">알바 관리 · 초대</div>
+      <h1>새 알바를 초대해보세요</h1>
+      <p class="sub">이름과 연락처를 입력하면 초대 링크를 보내드려요.<br>알바가 링크로 들어오면 확정된 카페 기준으로 바로 훈련이 시작돼요.</p>
+    </div>
+
+    <div class="invite-card glass">
+      <div class="field-row">
+        <div class="field">
+          <label>이름</label>
+          <input type="text" placeholder="김민지">
+        </div>
+        <div class="field">
+          <label>전화번호</label>
+          <input type="text" placeholder="010-0000-0000">
+        </div>
+      </div>
+      <a class="btn-primary" href="training_session.html" style="display:block; text-decoration:none; text-align:center;">초대 문자 보내기</a>
+
+      <div class="link-row">
+        <span>albafit.app/invite/cafe-a1b2c3</span>
+        <button class="btn-copy">링크 복사</button>
+      </div>
+    </div>
+
+    <div class="section-label">초대 현황 · 2명</div>
+    <div class="invitee-row glass">
+      <div class="avatar-initial">김민</div>
+      <div>
+        <div class="invitee-name">김민지</div>
+        <div class="invitee-meta">010-1234-5678 · 어제 초대됨</div>
+      </div>
+      <span class="status-chip pending">응답 대기</span>
+    </div>
+    <div class="invitee-row glass">
+      <div class="avatar-initial">이서</div>
+      <div>
+        <div class="invitee-name">이서준</div>
+        <div class="invitee-meta">010-9876-5432 · 훈련 진행중</div>
+      </div>
+      <span class="status-chip active">훈련중</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
