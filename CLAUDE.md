@@ -4,18 +4,24 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-매장 맞춤 알바 훈련 서비스 — 사장님이 매장 응대 기준을 한 번 입력해두면, 새 알바가 올 때마다 AI 손님과 실전 대화 연습을 하고 그 기준에 맞춰 교정 피드백을 받는 웹 서비스. 4주 챌린지 프로젝트로, 현재 저장소는 **프론트엔드 뼈대만 있는 초기 단계**다 (백엔드·DB·AI 로직은 아직 구현 전).
+매장 맞춤 알바 훈련 서비스 — 사장님이 매장 응대 기준을 한 번 입력해두면, 새 알바가 올 때마다 AI 손님과 실전 대화 연습을 하고 그 기준에 맞춰 교정 피드백을 받는 웹 서비스. 4주 챌린지 프로젝트로, 현재 저장소는 **프론트엔드 뼈대 + 백엔드 개발 환경 스캐폴드까지만 있는 초기 단계**다 (백엔드 API·DB 연결·AI 로직 자체는 아직 구현 전 — `server/`에 빈 껍데기 Express 서버와 Prisma 스키마만 있다).
 
 전체 기획·아키텍처·근거는 `docs/plan.md`에 있다 — 이 리포지토리에서 작업할 때 반드시 먼저 읽을 것. DB 스키마는 `docs/db-schema.md`, 4주 작업 순서는 `docs/checklist.md`에 있다.
 
 ## Commands
 
+프론트 (루트):
 - `npm run dev` — Vite 개발 서버 실행
 - `npm run build` — 프로덕션 빌드
 - `npm run preview` — 빌드 결과 로컬 미리보기
-- `npm run lint` — oxlint 실행 (설정: `.oxlintrc.json`, `react`/`oxc` 플러그인)
+- `npm run lint` — oxlint 실행, `server/`까지 포함한 리포 전체 대상 (설정: `.oxlintrc.json`, `react`/`oxc` 플러그인 + `server/**/*.js` node env override)
 
-테스트 러너는 아직 없다. 백엔드(Express)·DB(PostgreSQL)도 아직 이 저장소에 없다 — `docs/checklist.md` 1주차 기준 앞으로 추가될 예정.
+백엔드 (`server/`, 독립 `package.json`):
+- `npm run server:install` — 루트에서 `server/` 의존성 설치 (최초 1회, `npm install --prefix server`)
+- `npm run server:dev` — 루트에서 백엔드 dev 서버 실행 (`--prefix server`로 위임, 내부적으로 `node --watch src/index.js`)
+- 현재는 `/api/health` 헬스체크 하나만 있는 빈 껍데기다. DB 연결·API 라우트·에이전트 호출은 `docs/checklist.md` 1~2주차에 채운다. 자세한 구조·라이브러리 선택 이유는 아래 "개발 환경" 절 참고.
+
+테스트 러너는 아직 없다 (코드도 없음). 2주차 이후 코어 로직이 생기면 **Vitest**로 붙이기로 정했다 — 그 전엔 추가하지 않는다.
 
 ## Architecture
 
@@ -44,6 +50,55 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ### 배포 대상
 
 백엔드·DB는 Railway, 프론트는 Vercel (아직 이 저장소에서 설정 전).
+
+## 개발 환경 (2026-07-10 결정)
+
+React/Express가 기본 스택이라는 건 plan.md에 이미 정해져 있었고, 여기서는 **그 위에서 구체적으로 어떻게 나눌지**를 정한 결정 기록이다.
+
+### 디렉토리 구조
+
+```
+hub/
+├─ src/                      # 프론트 (Vite + React) — 기존 그대로, 옮기지 않음
+├─ server/                   # 백엔드 (Express) — 독립 package.json
+│  ├─ src/
+│  │  ├─ index.js            # 앱 엔트리 + /api/health 헬스체크만 있는 상태
+│  │  ├─ routes/             # API 라우트 추가 위치 (아직 비어있음)
+│  │  └─ lib/                # anthropic 클라이언트 등 추가 위치 (아직 비어있음)
+│  ├─ prisma/schema.prisma   # docs/db-schema.md 6개 테이블을 그대로 옮긴 모델
+│  └─ .env.example
+└─ docs/
+```
+
+- **프론트는 루트에 그대로 두고 `server/`만 새로 추가**한다 — npm workspaces로 재구성(`client/`+`server/`)하지 않는다. 이 리포는 여러 수강생이 각자 브랜치로 작업 중이라, 기존 프론트 파일 경로(`src/`, `vite.config.js`, `index.html`)를 옮기면 다른 브랜치·PR과 충돌 범위가 커진다.
+- `server/`는 루트와 독립된 `package.json`·`node_modules`를 가진다 (workspaces 아님, 그냥 형제 디렉토리).
+
+### 라이브러리 선택
+
+- **express** — plan.md 지정 스택
+- **@prisma/client** + **prisma** — checklist.md 권장 ORM. `server/prisma/schema.prisma`는 `docs/db-schema.md`를 그대로 옮긴 것이므로, **스키마를 바꿀 땐 두 파일을 같이 수정**한다.
+- **@anthropic-ai/sdk** — 손님·평가 두 에이전트 호출용 (2주차부터 사용)
+- **cors**, **dotenv** — 로컬에서 프론트(Vite, 기본 5173 포트) 요청 허용 + `.env` 로드
+- 파일 변경 감지 재시작은 별도 `nodemon` 없이 **Node 내장 `--watch`** 사용 (Node 20+ 전제) — 의존성 하나를 줄이는 선택
+
+### 환경 변수
+
+- `server/.env.example`에 `DATABASE_URL`, `ANTHROPIC_API_KEY`, `PORT`, `CORS_ORIGIN`을 정의해 커밋한다. 실제 값은 `server/.env`에 로컬로만 채운다.
+- 루트 `.gitignore`에 `.env`/`.env.*`(`.env.example` 제외) 무시 규칙을 추가했다 — **기존에는 이 규칙이 없어서 실수로 커밋될 수 있는 상태였다.**
+- Railway 배포 시 같은 키를 Railway 프로젝트 환경변수로 그대로 옮긴다.
+
+### 코드 컨벤션
+
+- 백엔드도 프론트와 동일하게 **JavaScript(ESM, `"type": "module"`)만 쓰고 TypeScript는 쓰지 않는다** — 스택을 하나로 유지해 4주 안에 타입 설정 오버헤드를 늘리지 않으려는 의도적 선택.
+- 세미콜론 없음 — 기존 프론트 코드 스타일(`src/App.jsx` 등)을 백엔드에도 그대로 적용.
+- lint는 루트 `npm run lint` 하나로 프론트+백엔드 전체를 커버한다. `.oxlintrc.json`에 `server/**/*.js` 전용 override(`env.node: true`)를 추가해 `process`/`console` 같은 Node 전역이 오탐되지 않게 했다 — 새 백엔드 코드가 lint 에러 없이 통과하는지는 항상 루트에서 `npm run lint`로 확인한다.
+- 테스트 러너는 **Vitest**로 정했다 (Vite 스택과 궁합이 좋고, 백엔드도 순수 API 호출 로직이라 별도 설정 없이 재사용 가능). 2주차 이후 코어 로직(A/B 에이전트)이 생기기 전까진 추가하지 않는다.
+- 커밋 메시지·PR 규칙은 백엔드도 아래 "Repo 운영 방식" 절과 동일하게 따른다.
+
+### 실행 방법
+
+- 프론트: 루트에서 `npm run dev`
+- 백엔드: `npm run server:install`(최초 1회) → `npm run server:dev` (또는 `cd server && npm run dev`)
 
 ## Repo 운영 방식 (다인원 공유 챌린지 리포)
 

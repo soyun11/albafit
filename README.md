@@ -15,6 +15,7 @@
 
 - [기획서 (plan)](../../wiki/plan) — 문제 정의, 리프레임 근거, 통계·경쟁 분석, 구현 아키텍처, 화면 구성, 로드맵
 - [작업 체크리스트 (checklist)](../../wiki/checklist) — 4주 개발 작업을 레이어·중요도·완성도 축으로 쪼갠 단위 체크리스트
+- [개발 Task 백로그 (Notion)](https://app.notion.com/p/AI-Agent-Challenge-Task-3992386a029a80e7bb27c9122d99a904?source=copy_link) — Task 우선순위·상태와 다음 주 목표 관리 (최초 정리본은 [docs/backlog.md](docs/backlog.md))
 
 화면 흐름도와 목업 이미지는 작업 PR에서 확인할 수 있다.
 

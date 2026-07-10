@@ -1,0 +1,100 @@
+// docs/db-schema.md 그대로 옮긴 스키마. 컬럼 추가/변경 시 db-schema.md도 함께 갱신할 것.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Store {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  linkKey   String   @unique @map("link_key") @db.VarChar(32)
+  industry  String   @default("cafe") @db.VarChar(50)
+  name      String?  @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  storeRules       StoreRule[]
+  scenarios        Scenario[]
+  trainingSessions TrainingSession[]
+
+  @@map("stores")
+}
+
+model StoreRule {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storeId   String   @map("store_id") @db.Uuid
+  category  String?  @db.VarChar(50)
+  rawText   String   @map("raw_text")
+  source    String   @default("text") @db.VarChar(20)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@map("store_rules")
+}
+
+model Scenario {
+  id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storeId      String   @map("store_id") @db.Uuid
+  type         String   @db.VarChar(30)
+  title        String   @db.VarChar(100)
+  persona      Json
+  initialState Json     @default("{}") @map("initial_state")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  rubrics          Rubric[]
+  trainingSessions TrainingSession[]
+
+  @@map("scenarios")
+}
+
+model Rubric {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  scenarioId String    @map("scenario_id") @db.Uuid
+  criteria   Json
+  version    Int       @default(1)
+  approvedAt DateTime? @map("approved_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  scenario Scenario @relation(fields: [scenarioId], references: [id], onDelete: Cascade)
+
+  @@map("rubrics")
+}
+
+model TrainingSession {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  storeId     String    @map("store_id") @db.Uuid
+  scenarioId  String    @map("scenario_id") @db.Uuid
+  staffLabel  String?   @map("staff_label") @db.VarChar(50)
+  status      String    @default("in_progress") @db.VarChar(20)
+  startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+
+  store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  scenario     Scenario      @relation(fields: [scenarioId], references: [id])
+  sessionTurns SessionTurn[]
+
+  @@index([storeId])
+  @@map("training_sessions")
+}
+
+model SessionTurn {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  sessionId       String   @map("session_id") @db.Uuid
+  turnNumber      Int      @map("turn_number")
+  customerMessage String   @map("customer_message")
+  staffAnswer     String   @map("staff_answer")
+  evaluation      Json
+  passed          Boolean
+  retryCount      Int      @default(0) @map("retry_count")
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  session TrainingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId])
+  @@map("session_turns")
+}
