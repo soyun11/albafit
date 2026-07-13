@@ -1,6 +1,7 @@
 import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
+import storesRouter from './routes/stores.js'
 
 const app = express()
 const port = process.env.PORT || 4000
@@ -11,6 +12,8 @@ app.use(express.json())
 app.get('/api/health', (req, res) => {
   res.json({ ok: true })
 })
+
+app.use('/api/stores', storesRouter)
 
 app.listen(port, () => {
   console.log(`server listening on http://localhost:${port}`)
