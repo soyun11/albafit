@@ -49,7 +49,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 배포 대상
 
-백엔드·DB는 Railway, 프론트는 Vercel (아직 이 저장소에서 설정 전).
+백엔드는 Railway, DB는 Supabase(Postgres), 프론트는 Vercel (아직 이 저장소에서 설정 전). DB는 원래 Railway Postgres였으나 2026-07-13 과제 요구사항에 맞춰 Supabase로 전환 — 자세한 경위는 `docs/db-migration-plan.md` 참고.
 
 ## 개발 환경 (2026-07-10 결정)
 
