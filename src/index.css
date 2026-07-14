@@ -13,6 +13,43 @@
 
   color-scheme: light dark;
   font-family: system-ui, 'Segoe UI', Roboto, sans-serif;
+
+  /* docs/design.md 토큰 — albafit 라이트 글래스모피즘 화면(TrainingSession 등)용.
+     위 --hue 기반 토큰(ProjectIntro가 씀)과는 별개로 병행 사용한다. */
+  --color-primary: #3d6fe0;
+  --color-primary-soft: #7fa6ff;
+  --gradient-primary: linear-gradient(90deg, #3d6fe0 0%, #7fa6ff 100%);
+
+  --color-bg: #f4f5f7;
+  --color-surface-glass: rgba(255, 255, 255, 0.66);
+  --color-surface-glass-border: rgba(20, 23, 28, 0.07);
+  --color-surface-selected: rgba(61, 111, 224, 0.14);
+  --color-track: rgba(20, 23, 28, 0.08);
+  --blur-glass: 18px;
+
+  --color-text-heading: #14171c;
+  --color-text-body: #33363c;
+  --color-text-secondary: #5b616c;
+  --color-text-muted: #8a93a0;
+  --color-text-on-primary: #ffffff;
+  --color-text-accent: #3d6fe0;
+
+  --font-family-base: 'Pretendard', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  --font-family-mono: 'IBM Plex Mono', monospace;
+
+  --radius-card: 20px;
+  --radius-control: 10px;
+  --radius-chip: 8px;
+  --radius-pill: 999px;
+
+  --space-card-padding: 24px;
+  --space-card-gap: 14px;
+  --space-item-gap: 12px;
+
+  --mascot-size-inline: 18px;
+  --mascot-size-badge: 26px;
+  --mascot-size-feature: 110px;
+  --mascot-crop-position: 50% 15%;
 }
 
 @media (prefers-color-scheme: dark) {
