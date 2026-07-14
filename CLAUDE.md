@@ -32,8 +32,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 서비스의 코어는 **목적이 다른 두 개의 LLM 에이전트가 상태를 주고받으며 도는 턴제 루프**다. 이 구조를 유지하는 것이 제품 품질의 전부이므로, 관련 코드를 건드릴 땐 아래 원칙을 지킨다.
 
-- **손님 에이전트** (Claude Haiku 4.5) — 페르소나·시나리오 상태(주문 상태·손님 기분·경과 턴)를 유지하며 애드리브. 할루시네이션 위험 낮음(애드리브가 자산).
-- **평가 에이전트** (Claude Sonnet 5) — 루브릭 항목별로 답변을 채점. 할루시네이션 위험이 여기 몰려 있어 방어가 필수 — 출력은 반드시 JSON(`{충족여부, 빠진기준[], 피드백, 개선문장}`)으로 강제하고, 판단 근거를 규칙 인용으로 대게 한다.
+- **손님 에이전트** (OpenAI `gpt-4o-mini`) — 페르소나·시나리오 상태(주문 상태·손님 기분·경과 턴)를 유지하며 애드리브. 할루시네이션 위험 낮음(애드리브가 자산). 호출이 잦아 저비용 모델을 쓴다.
+- **평가 에이전트** (Google `gemini-3.5-flash`) — 루브릭 항목별로 답변을 채점. 할루시네이션 위험이 여기 몰려 있어 방어가 필수 — 출력은 반드시 JSON(`{충족여부, 빠진기준[], 피드백, 개선문장}`)으로 강제하고(Gemini `responseSchema`/`responseMimeType: "application/json"` 사용), 판단 근거를 규칙 인용으로 대게 한다.
+- 2026-07-14, 비용 비교 끝에 Claude(Haiku/Sonnet)에서 OpenAI+Gemini 조합으로 전환 — `server/src/lib/openai.js`, `server/src/lib/gemini.js` 참고. `docs/plan.md` 5-3에 있던 Claude 기준 서술은 이 절이 최신이다.
 - **두 에이전트는 절대 한 호출로 합치지 않는다** — 시스템 프롬프트·요구 품질·모델이 다르기 때문.
 - **루브릭 = 할루시네이션 방어막**: 사장님이 입력한 자연어 규칙을 AI가 그대로 판단하게 하면 안 되고, 반드시 "①②③ 있는지 체크"처럼 닫힌 채점표(루브릭)로 먼저 변환한 뒤 그 루브릭 기준으로만 채점하게 한다.
 - **AI는 생성, 사장님은 승인** — 규칙→루브릭 변환, 시나리오 초안 생성은 AI가 하되 사장님 승인 없이 확정하지 않는다. AI는 업종 일반 상식까지만 알아야 하고 브랜드별 정책(예: 특정 프랜차이즈 환불 규정)은 지어내면 안 된다.
@@ -64,7 +65,7 @@ hub/
 │  ├─ src/
 │  │  ├─ index.js            # 앱 엔트리 + /api/health 헬스체크만 있는 상태
 │  │  ├─ routes/             # API 라우트 추가 위치 (아직 비어있음)
-│  │  └─ lib/                # anthropic 클라이언트 등 추가 위치 (아직 비어있음)
+│  │  └─ lib/                # openai.js, gemini.js 클라이언트, rubric.js 변환 함수
 │  ├─ prisma/schema.prisma   # docs/db-schema.md 6개 테이블을 그대로 옮긴 모델
 │  └─ .env.example
 └─ docs/
@@ -77,13 +78,14 @@ hub/
 
 - **express** — plan.md 지정 스택
 - **@prisma/client** + **prisma** — checklist.md 권장 ORM. `server/prisma/schema.prisma`는 `docs/db-schema.md`를 그대로 옮긴 것이므로, **스키마를 바꿀 땐 두 파일을 같이 수정**한다.
-- **@anthropic-ai/sdk** — 손님·평가 두 에이전트 호출용 (2주차부터 사용)
+- **openai** — 손님 에이전트(`gpt-4o-mini`) 호출용
+- **@google/genai** — 평가·루브릭 변환 에이전트(`gemini-3.5-flash`) 호출용, JSON 스키마 강제(`responseSchema`)에 사용
 - **cors**, **dotenv** — 로컬에서 프론트(Vite, 기본 5173 포트) 요청 허용 + `.env` 로드
 - 파일 변경 감지 재시작은 별도 `nodemon` 없이 **Node 내장 `--watch`** 사용 (Node 20+ 전제) — 의존성 하나를 줄이는 선택
 
 ### 환경 변수
 
-- `server/.env.example`에 `DATABASE_URL`, `ANTHROPIC_API_KEY`, `PORT`, `CORS_ORIGIN`을 정의해 커밋한다. 실제 값은 `server/.env`에 로컬로만 채운다.
+- `server/.env.example`에 `DATABASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `PORT`, `CORS_ORIGIN`을 정의해 커밋한다. 실제 값은 `server/.env`에 로컬로만 채운다.
 - 루트 `.gitignore`에 `.env`/`.env.*`(`.env.example` 제외) 무시 규칙을 추가했다 — **기존에는 이 규칙이 없어서 실수로 커밋될 수 있는 상태였다.**
 - Railway 배포 시 같은 키를 Railway 프로젝트 환경변수로 그대로 옮긴다.
 
