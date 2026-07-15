@@ -1,0 +1,86 @@
+[
+  {
+    "id": "delay-01",
+    "scenarioType": "delay",
+    "scenarioTitle": "음료 지연",
+    "rawRulesText": "음료가 늦게 나올 땐 꼭 사과하고 예상 대기시간을 구체적으로 안내한다. 5분 넘게 걸리면 쿠키 하나를 서비스로 드린다.",
+    "expectedKeywords": ["사과", "대기시간", "서비스"]
+  },
+  {
+    "id": "delay-02",
+    "scenarioType": "delay",
+    "scenarioTitle": "음료 지연",
+    "rawRulesText": "주문이 밀렸을 때는 손님에게 먼저 다가가서 상황을 설명하고, 몇 분 뒤에 나오는지 알려준다. 재촉하는 손님에게는 절대 짜증내지 않는다.",
+    "expectedKeywords": ["설명", "안내", "태도"]
+  },
+  {
+    "id": "delay-03",
+    "scenarioType": "delay",
+    "scenarioTitle": "음료 지연",
+    "rawRulesText": "특별한 규정 없음. 그냥 친절하게 응대한다.",
+    "expectedKeywords": []
+  },
+  {
+    "id": "delay-04",
+    "scenarioType": "delay",
+    "scenarioTitle": "음료 지연",
+    "rawRulesText": "커스텀 음료(시럽 추가, 얼음량 조절 등)는 제조 시간이 더 걸릴 수 있다는 걸 주문받을 때 미리 안내한다. 지연 시 사과 멘트는 매뉴얼에 있는 표준 문구를 그대로 쓴다: \"기다려주셔서 감사합니다, 곧 준비해드릴게요.\"",
+    "expectedKeywords": ["제조 시간", "사과", "안내"]
+  },
+  {
+    "id": "out_of_stock-01",
+    "scenarioType": "out_of_stock",
+    "scenarioTitle": "품절 메뉴",
+    "rawRulesText": "재료가 품절이면 바로 대체 메뉴를 2개 이상 제안한다. 가격이 다르면 결제 전에 차액을 꼭 안내한다.",
+    "expectedKeywords": ["대체", "가격", "안내"]
+  },
+  {
+    "id": "out_of_stock-02",
+    "scenarioType": "out_of_stock",
+    "scenarioTitle": "품절 메뉴",
+    "rawRulesText": "시럽류가 품절됐을 땐 무가당 옵션으로 대체 가능하다고 안내하고, 손님이 원치 않으면 주문을 취소해도 괜찮다고 말한다.",
+    "expectedKeywords": ["대체", "취소"]
+  },
+  {
+    "id": "out_of_stock-03",
+    "scenarioType": "out_of_stock",
+    "scenarioTitle": "품절 메뉴",
+    "rawRulesText": "품절 안내는 항상 사과로 시작한다. \"죄송합니다, 지금 그 메뉴가 품절이에요\"처럼 말하고, 절대 \"없어요\"라고만 답하지 않는다.",
+    "expectedKeywords": ["사과", "품절"]
+  },
+  {
+    "id": "out_of_stock-04",
+    "scenarioType": "out_of_stock",
+    "scenarioTitle": "품절 메뉴",
+    "rawRulesText": "포장 손님에게는 빨대를 요청 시에만 드린다.",
+    "expectedKeywords": []
+  },
+  {
+    "id": "rule_violation-01",
+    "scenarioType": "rule_violation",
+    "scenarioTitle": "매장 규칙 위반 손님",
+    "rawRulesText": "좌석 이용시간은 2시간이며, 손님에게 안내할 때는 구체적인 시각(예: 3시까지)으로 말한다. 콘센트는 노트북 작업 손님만 이용 가능하다.",
+    "expectedKeywords": ["이용시간", "구체적", "콘센트"]
+  },
+  {
+    "id": "rule_violation-02",
+    "scenarioType": "rule_violation",
+    "scenarioTitle": "매장 규칙 위반 손님",
+    "rawRulesText": "마감 30분 전에는 신메뉴 주문을 받지 않는다. 이유를 물어보면 준비 시간이 부족하다고 정중히 설명한다.",
+    "expectedKeywords": ["설명", "정중"]
+  },
+  {
+    "id": "rule_violation-03",
+    "scenarioType": "rule_violation",
+    "scenarioTitle": "매장 규칙 위반 손님",
+    "rawRulesText": "시식 요청은 하루 1인 1회로 제한한다. 재차 요청하면 정중히 거절하되, 다음 방문 때 다시 가능하다고 안내한다.",
+    "expectedKeywords": ["거절", "안내", "정중"]
+  },
+  {
+    "id": "rule_violation-04",
+    "scenarioType": "rule_violation",
+    "scenarioTitle": "매장 규칙 위반 손님",
+    "rawRulesText": "반려동물 동반은 캐리어에 들어있을 때만 허용한다. 안 그러면 정중히 양해를 구하고 매장 밖에서 기다려달라고 안내한다.",
+    "expectedKeywords": ["양해", "안내"]
+  }
+]
