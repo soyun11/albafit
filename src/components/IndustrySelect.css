@@ -16,26 +16,6 @@
   border-radius: var(--radius-card);
 }.industry-page .mono {
   font-family: var(--font-family-mono);
-}.industry-page .logo-word {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--color-text-heading);
-  transition: color 0.15s ease;
-}.industry-page .logo-word:hover {
-  color: var(--color-primary);
-}.industry-page .industry-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 8%;
-}.industry-page .industry-nav-step {
-  font-size: 12px;
-  color: var(--color-text-muted);
 }.industry-page .industry-wrap {
   max-width: 640px;
   margin: 0 auto;
@@ -91,6 +71,9 @@
   border-color: var(--color-primary);
 }.industry-page .industry-card.selected .industry-label {
   color: var(--color-text-heading);
+}.industry-page .industry-card:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }.industry-page .check {
   width: 16px;
   height: 16px;
@@ -170,6 +153,9 @@
   border-radius: var(--radius-control);
   border: none;
   cursor: pointer;
+}.industry-page .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }.industry-page .btn-ghost {
   background: rgba(255, 255, 255, 0.7);
   color: var(--color-text-heading);
@@ -179,6 +165,11 @@
   border-radius: var(--radius-control);
   border: 1px solid rgba(20, 23, 28, 0.12);
   cursor: pointer;
+}.industry-page .industry-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin-top: 16px;
+  text-align: right;
 }.industry-page .footer-bar {
   margin-top: 12px;
   padding-top: 24px;

@@ -18,8 +18,57 @@ model Store {
   storeRules       StoreRule[]
   scenarios        Scenario[]
   trainingSessions TrainingSession[]
+  users            User[]
 
   @@map("stores")
+}
+
+model User {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String    @unique @db.VarChar(255)
+  passwordHash    String    @map("password_hash")
+  role            String    @db.VarChar(20) // owner | staff
+  name            String?   @db.VarChar(50)
+  storeId         String?   @map("store_id") @db.Uuid
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  store                   Store?                   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  emailVerificationTokens EmailVerificationToken[]
+  refreshTokens           RefreshToken[]
+
+  @@map("users")
+}
+
+// 사장님 회원가입 시 이메일이 진짜 본인 것인지 확인하는 1회용 토큰.
+// 원문은 저장하지 않고 해시만 저장한다 — 비밀번호처럼 DB가 유출돼도 토큰을 그대로 못 쓰게.
+model EmailVerificationToken {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  tokenHash String   @unique @map("token_hash")
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("email_verification_tokens")
+}
+
+// 로그인 상태를 오래 유지하기 위한 재발급용 토큰. DB에 저장해두는 이유:
+// ① 서버가 특정 토큰/유저를 강제로 무효화(로그아웃)할 수 있어야 하고,
+// ② 이미 무효화된 토큰이 재사용되면(도난 의심) 그 유저의 모든 토큰을 한 번에 막을 수 있어야 하기 때문.
+model RefreshToken {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model StoreRule {
@@ -28,6 +77,10 @@ model StoreRule {
   category  String?  @db.VarChar(50)
   rawText   String   @map("raw_text")
   source    String   @default("text") @db.VarChar(20)
+  // 이 제출에 담긴 규칙 카드별 원본 정보([{label, title, content, mascot}]) — "기준 재설정" 화면에서
+  // 다시 불러올 때 raw_text를 억지로 파싱하지 않고 원래 라벨 그대로 복원하기 위해 저장한다.
+  // nullable인 이유: 이 컬럼이 생기기 전에 저장된 과거 row는 값이 없다 — 그런 row는 SAVED로만 표시된다.
+  items     Json?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)

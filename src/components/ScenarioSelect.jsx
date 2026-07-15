@@ -1,33 +1,25 @@
 import { useState } from 'react'
 import './ScenarioSelect.css'
 import mascotGreeting from '../../img/mascot-greeting.png'
+import { INDUSTRY_SCENARIOS } from '../lib/industries'
+import AppNav from './AppNav'
 
-const SCENARIOS = [
-  { key: 'delay', icon: '⏰', title: '음료 지연', desc: '사과 · 대기시간 안내 연습' },
-  { key: 'outOfStock', icon: '📦', title: '품절 메뉴', desc: '사과 · 대체 메뉴 안내 연습' },
-  { key: 'ruleViolation', icon: '🙅', title: '매장 규칙 위반 손님', desc: '규칙 안내 · 부드러운 대안 제시 연습' },
-]
-
-function ScenarioSelect({ onHome, onNext }) {
-  const [selected, setSelected] = useState('delay')
+function ScenarioSelect({ onNext, onNavigate, onChangePassword, onLogout, industry }) {
+  const scenarios = INDUSTRY_SCENARIOS[industry] ?? INDUSTRY_SCENARIOS.cafe
+  const [selected, setSelected] = useState(scenarios[0].key)
 
   return (
     <div className="scenario-page">
-      <nav className="scenario-nav">
-        <button type="button" className="logo-word mono" onClick={onHome}>
-          albafit
-        </button>
-        <span className="scenario-nav-step mono">시나리오 선택</span>
-      </nav>
+      <AppNav role="staff" current="scenario" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
 
       <div className="scenario-wrap">
         <img className="mascot-hero" src={mascotGreeting} alt="" />
         <div className="eyebrow mono">훈련 시작 · 시나리오 선택</div>
         <h1>오늘은 어떤 상황을 연습할까요?</h1>
-        <p className="sub">카페에서 자주 나오는 상황 3가지 중 하나를 골라 훈련을 시작해보세요.</p>
+        <p className="sub">우리 매장에서 자주 나오는 상황 3가지 중 하나를 골라 훈련을 시작해보세요.</p>
 
         <div className="scenario-grid">
-          {SCENARIOS.map((scenario) => {
+          {scenarios.map((scenario) => {
             const isSelected = selected === scenario.key
 
             return (

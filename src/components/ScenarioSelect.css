@@ -16,26 +16,6 @@
   border-radius: var(--radius-card);
 }.scenario-page .mono {
   font-family: var(--font-family-mono);
-}.scenario-page .logo-word {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--color-text-heading);
-  transition: color 0.15s ease;
-}.scenario-page .logo-word:hover {
-  color: var(--color-primary);
-}.scenario-page .scenario-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 8%;
-}.scenario-page .scenario-nav-step {
-  font-size: 12px;
-  color: var(--color-text-muted);
 }.scenario-page .scenario-wrap {
   max-width: 640px;
   margin: 0 auto;

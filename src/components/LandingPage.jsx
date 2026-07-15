@@ -4,7 +4,12 @@ import mascotApprove from '../../img/mascot-approve.png'
 import mascotConfused from '../../img/mascot-confused.png'
 import mascotCoach from '../../img/mascot-coach.png'
 
-function LandingPage({ onStart, onMenu }) {
+// 클릭한 섹션까지 부드럽게 스크롤 — 상단바가 sticky가 아니라 섹션 상단이 nav에 가리진 않는다.
+function scrollToSection(id) {
+  document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
+}
+
+function LandingPage({ onStart, onTry, onMenu, onLogin, onSignup, onLogout, user }) {
   return (
     <div className="landing-page">
       <nav className="landing-nav">
@@ -13,11 +18,37 @@ function LandingPage({ onStart, onMenu }) {
           <span className="logo-word">albafit</span>
         </div>
         <div className="nav-links">
-          <span>기능</span>
-          <span>도입사례</span>
-          <button type="button" className="nav-menu-link" onClick={onMenu}>
+          <button type="button" className="nav-menu-link" onClick={() => scrollToSection('section-why')}>
+            왜 albafit인지
+          </button>
+          <button type="button" className="nav-menu-link" onClick={() => scrollToSection('section-how')}>
+            이용 방법
+          </button>
+          <button type="button" className="nav-menu-link" onClick={() => scrollToSection('section-effect')}>
+            효과
+          </button>
+          <button type="button" className="nav-menu-link dev-link" onClick={onMenu}>
             전체 화면 목록
           </button>
+        </div>
+        <div className="nav-auth">
+          {user ? (
+            <>
+              <span className="nav-user mono">{user.name ?? user.email}</span>
+              <button type="button" className="nav-link-btn" onClick={onLogout}>
+                로그아웃
+              </button>
+            </>
+          ) : (
+            <>
+              <button type="button" className="nav-link-btn" onClick={onLogin}>
+                로그인
+              </button>
+              <button type="button" className="nav-link-btn" onClick={onSignup}>
+                회원가입
+              </button>
+            </>
+          )}
         </div>
         <button type="button" className="nav-cta" onClick={onStart}>
           시작하기
@@ -36,6 +67,9 @@ function LandingPage({ onStart, onMenu }) {
         <div className="cta-row">
           <button type="button" className="btn-primary" onClick={onStart}>
             시작하기 →
+          </button>
+          <button type="button" className="btn-secondary" onClick={onTry}>
+            매장 없이 체험하기
           </button>
         </div>
 
@@ -93,7 +127,7 @@ function LandingPage({ onStart, onMenu }) {
         </div>
       </div>
 
-      <section className="block">
+      <section className="block" id="section-why">
         <div className="block-head-row">
           <div className="block-head-text">
             <div className="eyebrow mono">albafit이 다른 이유</div>
@@ -125,7 +159,7 @@ function LandingPage({ onStart, onMenu }) {
         </div>
       </section>
 
-      <section className="block">
+      <section className="block" id="section-how">
         <div className="eyebrow mono">사용 방법</div>
         <div className="section-title">세 단계면 훈련이 끝나요</div>
         <div className="section-desc">
@@ -151,7 +185,7 @@ function LandingPage({ onStart, onMenu }) {
         </div>
       </section>
 
-      <section className="block">
+      <section className="block" id="section-effect">
         <div className="eyebrow mono">교육 전 / 후</div>
         <div className="section-title">같은 상황, 다른 응대</div>
         <div className="section-desc">

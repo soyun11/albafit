@@ -1,11 +1,12 @@
 # db-schema.md — DB 스키마 (PostgreSQL)
 
 > [plan.md](./plan.md) 5-5의 상세 스키마. 매장 맞춤 알바 훈련 서비스 MVP 기준.
+> 필드까지 포함한 그림은 [db-erd.md](./db-erd.md) 참고.
 
 ## 설계 원칙
 
-- 로그인이 없으므로 모든 것은 **매장 링크(`stores.link_key`)를 루트로 매달린다.**
-- 알바는 계정이 없어 세션에 자유 텍스트 라벨(`staff_label`)만 남긴다 — 신원 관리가 아니라 "리포트에서 구분만 되면 된다"는 요구 수준에 맞춘 의도적 단순화다.
+- 2026-07-15부터 사장님·알바 둘 다 이메일+비밀번호 계정(`users`)으로 로그인한다. 기존 매장 링크(`stores.link_key`)는 폐기하지 않았지만 더 이상 로그인/가입 경로로 쓰이지 않는다 — 알바 계정은 셀프 가입이 아니라 로그인한 사장님이 대시보드에서 이메일+초기 비밀번호를 정해 직접 만들어준다(`users.store_id`가 그때 바로 채워짐).
+- 알바는 여전히 세션에 자유 텍스트 라벨(`staff_label`)을 남길 수 있지만, 이제는 `users` 계정과도 연결된다 — 계정 로그인은 "내 세션 이어보기"를 위한 것이고 `staff_label`은 리포트 표시용 별칭이라는 역할 구분은 유지한다.
 - 루브릭·평가 결과처럼 구조가 시나리오마다 다르고 통으로 읽고 쓰는 값은 **JSONB 컬럼**에 담아 유연성을 확보한다.
 
 ## ERD
@@ -15,9 +16,12 @@ erDiagram
     STORES ||--o{ STORE_RULES : has
     STORES ||--o{ SCENARIOS : has
     STORES ||--o{ TRAINING_SESSIONS : has
+    STORES ||--o{ USERS : has
     SCENARIOS ||--o{ RUBRICS : has
     SCENARIOS ||--o{ TRAINING_SESSIONS : used_in
     TRAINING_SESSIONS ||--o{ SESSION_TURNS : has
+    USERS ||--o{ EMAIL_VERIFICATION_TOKENS : has
+    USERS ||--o{ REFRESH_TOKENS : has
 ```
 
 ## 테이블 정의
@@ -39,6 +43,7 @@ CREATE TABLE store_rules (
   category      VARCHAR(50),                  -- 예: 환불, 지연, 금지표현
   raw_text      TEXT NOT NULL,
   source        VARCHAR(20) NOT NULL DEFAULT 'text', -- text | photo(v1.5)
+  items         JSONB,                        -- 이 제출의 규칙 카드별 원본([{label, title, content, mascot}]) — "기준 재설정"에서 원래 라벨(예: 매뉴얼 기반) 그대로 복원하려고 저장. 이 컬럼 생기기 전 row는 NULL.
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -87,9 +92,47 @@ CREATE TABLE session_turns (
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- 계정: 사장님/알바 공용. role로 구분. 사장님은 회원가입 시엔 store_id가 비어있다가 매장 생성 성공 시
+-- 채워지고, 알바는 사장님이 대시보드에서 계정을 만들어줄 때 바로 채워진다.
+-- email_verified_at은 사장님 회원가입 시 이메일 인증 완료 시각(null이면 미인증). 알바는 사장님이
+-- 계정을 만들어주므로 이메일 인증 대상이 아니라 항상 null.
+CREATE TABLE users (
+  id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  email             VARCHAR(255) UNIQUE NOT NULL,
+  password_hash     TEXT NOT NULL,
+  role              VARCHAR(20) NOT NULL,          -- owner | staff
+  name              VARCHAR(50),
+  store_id          UUID REFERENCES stores(id) ON DELETE SET NULL,
+  email_verified_at TIMESTAMPTZ,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 이메일 인증용 1회용 토큰. 원문 대신 해시만 저장(비밀번호처럼 유출 대비). token_hash는 UNIQUE라
+-- "이 토큰 해시가 있는지" 조회가 인덱스로 바로 된다.
+CREATE TABLE email_verification_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  TEXT UNIQUE NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- 로그인 유지용 재발급 토큰. 서버가 강제로 무효화(revoked_at)할 수 있고, 이미 무효화된 토큰이
+-- 재사용되면 도난으로 간주해 해당 유저의 모든 토큰을 한 번에 막는 데 쓴다(로테이션).
+CREATE TABLE refresh_tokens (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash  TEXT UNIQUE NOT NULL,
+  expires_at  TIMESTAMPTZ NOT NULL,
+  revoked_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE UNIQUE INDEX idx_stores_link_key ON stores(link_key);
+CREATE UNIQUE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_training_sessions_store_id ON training_sessions(store_id);
 CREATE INDEX idx_session_turns_session_id ON session_turns(session_id);
+CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 ```
 
 ## 설계 메모

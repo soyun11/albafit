@@ -16,30 +16,6 @@
   border-radius: var(--radius-card);
 }.session-page .mono {
   font-family: var(--font-family-mono);
-}.session-page .logo-word {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--color-text-heading);
-  transition: color 0.15s ease;
-}.session-page .logo-word:hover {
-  color: var(--color-primary);
-}.session-page .session-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 2%;
-}.session-page .nav-left {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-}.session-page .session-meta {
-  font-size: 0.75rem;
-  color: var(--color-text-muted);
 }.session-page .end-btn {
   background: var(--color-text-heading);
   color: var(--color-text-on-primary);
@@ -104,6 +80,15 @@
   color: var(--color-text-on-primary);
   margin-left: auto;
   border-bottom-right-radius: 4px;
+}.session-page .session-complete-note {
+  margin-top: 20px;
+  padding: 14px 16px;
+  text-align: center;
+  font-size: 13.5px;
+  color: var(--color-text-secondary);
+  background: rgba(61, 111, 224, 0.06);
+  border: 1px solid rgba(61, 111, 224, 0.18);
+  border-radius: var(--radius-control);
 }.session-page .input-bar {
   display: flex;
   align-items: center;
