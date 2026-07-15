@@ -3,6 +3,9 @@ import { Prisma } from '@prisma/client'
 import prisma from '../lib/prisma.js'
 import { generateLinkKey } from '../lib/linkKey.js'
 import { generateRubric } from '../lib/rubric.js'
+import { hashPassword, signAccessToken } from '../lib/auth.js'
+import { requireAuth, requireRole } from '../middleware/requireAuth.js'
+import { INDUSTRY_SCENARIOS } from '../lib/industryScenarios.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -10,22 +13,20 @@ const router = Router()
 
 const MAX_LINK_KEY_RETRIES = 3 // link_key 중복 시 재시도할 최대 횟수
 
-// MVP는 카페 1개로 축소 — docs/plan.md 기준 카페 시나리오 3종 고정
-// 나중에 다른 업종이 추가되면 이 배열을 업종별로 분기해야 함(아직은 카페 하나뿐이라 그냥 상수로 둠)
-const CAFE_SCENARIOS = [
-  { type: 'delay', title: '음료 지연' },
-  { type: 'out_of_stock', title: '품절 메뉴' },
-  { type: 'rule_violation', title: '매장 규칙 위반 손님' },
-]
-
 // ============================================================
 // 매장 링크 발급 — POST /api/stores
 // (프론트에서 사장님이 "매장 만들기" 누르면 이 API가 호출됨)
 // ============================================================
-router.post('/', async (req, res) => {
+router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
   // req(request) = 클라이언트가 보낸 요청. req.body = 요청 본문(JSON으로 보낸 데이터).
   // res(response) = 우리가 클라이언트한테 돌려줄 응답 객체.
   // async 함수라서 안에서 await(비동기 대기)를 쓸 수 있음 — DB 작업은 시간이 걸리니 await로 "끝날 때까지 기다렸다가 다음 줄 실행".
+
+  // 이미 매장이 있는 사장님이 또 만들면, 기존 매장은 DB에 남아있지만 이 계정의 storeId만 새 매장으로
+  // 덮어써져서 사실상 못 찾는 매장이 된다(고아 상태) — 그걸 막는다.
+  if (req.user.storeId) {
+    return res.status(409).json({ error: 'you already have a store' })
+  }
 
   // 구조분해 할당: req.body 안에 있는 industry, name 값을 바로 꺼내서 변수로 만듦.
   // req.body가 아예 없을 수도 있어서(예: body를 안 보낸 요청) `?? {}`로 "없으면 빈 객체로 취급"해서 에러를 막음.
@@ -57,9 +58,21 @@ router.post('/', async (req, res) => {
           ...(name !== undefined && { name }),
         },
       })
-      // 저장 성공 — 201(생성됨) 상태코드와 함께 만들어진 store 정보를 그대로 응답.
+
+      // 이 매장을 만든 사장님 계정에 storeId를 연결 — 이게 있어야 다음 로그인부터 자기 매장을 바로 찾는다.
+      const owner = await prisma.user.update({
+        where: { id: req.user.id },
+        data: { storeId: store.id },
+      })
+
+      // req.user(토큰 안 값)는 storeId가 비어있던 옛날 값이라, 새 storeId를 담아 액세스 토큰을 다시
+      // 발급해서 프론트가 이 응답의 accessToken으로 갈아끼우면 그 다음 요청부터 바로 이 매장 소속으로
+      // 인증된다. 리프레시 토큰은 storeId를 담지 않으므로(로그인 상태 유지 전용) 그대로 둔다.
+      const accessToken = signAccessToken(owner)
+
+      // 저장 성공 — 201(생성됨) 상태코드와 함께 만들어진 store 정보와 갱신된 accessToken을 응답.
       // 여기서 return 하니까 아래 for문 반복이나 catch로 안 내려가고 함수가 바로 끝남.
-      return res.status(201).json(store)
+      return res.status(201).json({ store, accessToken })
     } catch (err) {
       // create가 실패하면(주로 link_key가 겹쳤을 때) 여기로 옴.
       // Prisma가 unique 제약 위반일 때 던지는 에러 코드가 'P2002'.
@@ -104,11 +117,15 @@ router.get('/:linkKey', async (req, res) => {
 })
 
 // ============================================================
-// 규칙 원문 저장 + 루브릭 자동 생성 — POST /api/stores/:linkKey/rules
+// 규칙 원문 저장 + 루브릭 자동 생성 — POST /api/stores/:linkKey/rules (사장님 전용)
 // (사장님이 규칙확인 화면 이전 단계에서 "매뉴얼/규정 텍스트"를 제출했을 때 호출되는 API)
-// 흐름: 규칙 저장 → 지금까지 쌓인 규칙 전부 모으기 → 카페 시나리오 3개마다 Gemini로 루브릭 생성 → 저장
+// 흐름: 규칙 저장 → 지금까지 쌓인 규칙 전부 모으기 → 업종별 시나리오 3개마다 Gemini로 루브릭 생성 → 저장
+//
+// requireAuth + 소유권 확인 필수 — 원래 이 라우트에 인증이 아예 없어서, linkKey만 알면 누구나
+// 남의 매장에 규칙을 밀어넣고 Gemini를 3번씩(시나리오 수만큼) 호출시킬 수 있었다. Gemini 무료 티어
+// 일일 한도가 20회뿐이라(직접 겪음) 악용되면 서비스 전체 AI 기능이 마비될 수 있는 진짜 보안 문제였다.
 // ============================================================
-router.post('/:linkKey/rules', async (req, res) => {
+router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, res) => {
   const { linkKey } = req.params // URL 경로에서 매장 링크 꺼냄
   const { category, rawText } = req.body ?? {} // 요청 body에서 규칙 원문(그리고 선택적으로 카테고리) 꺼냄
 
@@ -126,6 +143,10 @@ router.post('/:linkKey/rules', async (req, res) => {
     const store = await prisma.store.findUnique({ where: { linkKey } })
     if (!store) {
       return res.status(404).json({ error: 'store not found' })
+    }
+    // 로그인은 했지만 이 매장 소유자가 아니면 막는다 — 로그인 여부만 확인하는 걸론 부족하다.
+    if (store.id !== req.user.storeId) {
+      return res.status(403).json({ error: 'store does not belong to you' })
     }
 
     // 2단계: 규칙 원문을 store_rules 테이블에 새 row로 저장.
@@ -147,18 +168,19 @@ router.post('/:linkKey/rules', async (req, res) => {
     // 즉 "규칙 여러 개를 한 덩어리의 긴 텍스트"로 합치는 것 — Gemini 프롬프트에 그대로 넣기 위해서.
     const combinedRulesText = allRules.map((rule) => rule.rawText).join('\n\n')
 
-    // 4단계: 카페 시나리오 3개(지연/품절/규칙위반)마다 각각 루브릭을 만들어야 함.
+    // 4단계: 이 매장 업종의 시나리오 3개마다 각각 루브릭을 만들어야 함.
     // 그런데 각 시나리오의 "Gemini한테 루브릭 만들어달라고 부탁하는" 부분이 실제로 20초 넘게 걸림(직접 테스트로 확인함).
     // 만약 for문으로 하나씩 순서대로(await 걸어가며) 처리하면 3개 * 20초 = 60초 넘게 걸려서 사용자가 너무 오래 기다려야 함.
     //
     // Promise.all(배열) — 배열 안의 여러 비동기 작업을 "동시에 전부 시작"시켜놓고, 그 작업들이 "다 끝날 때까지"만 기다림.
     // 세 시나리오는 서로 결과를 참조하지 않는 완전히 독립적인 작업이라 병렬로 돌려도 안전함.
     // 이렇게 하면 전체 소요 시간이 (3개 합) 대신 (가장 오래 걸리는 것 1개) 정도로 줄어듦.
-    //
-    // CAFE_SCENARIOS.map(async (scenarioDef) => {...}) — 시나리오 배열의 각 항목마다 "비동기 작업 함수"를 하나씩 만들어서
+    const scenarioDefs = INDUSTRY_SCENARIOS[store.industry] ?? INDUSTRY_SCENARIOS.cafe
+
+    // scenarioDefs.map(async (scenarioDef) => {...}) — 시나리오 배열의 각 항목마다 "비동기 작업 함수"를 하나씩 만들어서
     // [Promise, Promise, Promise] 형태의 배열을 만들고, 그걸 Promise.all에 넘김.
     const rubrics = await Promise.all(
-      CAFE_SCENARIOS.map(async (scenarioDef) => {
+      scenarioDefs.map(async (scenarioDef) => {
         // 4-1. 이 매장에 해당 타입(예: 'delay')의 시나리오가 이미 DB에 있는지 확인.
         // findFirst = 조건에 맞는 것 중 첫 번째 하나만 가져옴(여러 개 있어도 첫 번째만).
         let scenario = await prisma.scenario.findFirst({
@@ -212,13 +234,61 @@ router.post('/:linkKey/rules', async (req, res) => {
       })
     )
     // 여기까지 오면 rubrics는 [루브릭1, 루브릭2, 루브릭3] 형태의 배열(시나리오 3개 * 각각의 저장 결과)
+    // scenarioDefs.map으로 만들었으니 인덱스가 그대로 대응된다 — 프론트에서 탭으로 구분해 보여줄 수 있게 타입/제목을 같이 붙여준다.
+    const rubricsWithScenario = rubrics.map((rubric, i) => ({
+      ...rubric,
+      scenarioType: scenarioDefs[i].type,
+      scenarioTitle: scenarioDefs[i].title,
+    }))
 
     // 저장한 규칙 원문 + 새로 만든 루브릭 3개를 한 번에 응답으로 돌려줌
-    return res.status(201).json({ storeRule, rubrics })
+    return res.status(201).json({ storeRule, rubrics: rubricsWithScenario })
   } catch (err) {
     // store 조회부터 루브릭 저장까지 이 try 블록 안 어디서든 에러가 나면 전부 여기로 옴
     console.error(err)
     return res.status(500).json({ error: 'failed to save rules and generate rubric' })
+  }
+})
+
+// ============================================================
+// 알바 계정 생성 — POST /api/stores/me/staff (사장님 전용)
+// 알바는 셀프 회원가입이 없고, 로그인한 사장님이 이메일+초기 비밀번호를 정해서 계정을 만들어준다.
+// req.user.storeId는 토큰 안 값 — 매장을 만든 뒤 재로그인/재발급된 토큰이어야 정확하다(POST / 응답의 새 token 참고).
+// ============================================================
+router.post('/me/staff', requireAuth, requireRole('owner'), async (req, res) => {
+  const { email, password, name } = req.body ?? {}
+
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'create a store before adding staff' })
+  }
+  if (typeof email !== 'string' || email.trim().length === 0 || email.length > 255) {
+    return res.status(400).json({ error: 'email is required' })
+  }
+  if (typeof password !== 'string' || password.length < 8) {
+    return res.status(400).json({ error: 'password must be at least 8 characters' })
+  }
+  if (name !== undefined && (typeof name !== 'string' || name.length > 50)) {
+    return res.status(400).json({ error: 'name must be a string of 50 characters or fewer' })
+  }
+
+  try {
+    const passwordHash = await hashPassword(password)
+    const staff = await prisma.user.create({
+      data: {
+        email: email.trim(),
+        passwordHash,
+        role: 'staff',
+        storeId: req.user.storeId,
+        ...(name !== undefined && { name }),
+      },
+    })
+    return res.status(201).json({ id: staff.id, email: staff.email, name: staff.name })
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'email already in use' })
+    }
+    console.error(err)
+    return res.status(500).json({ error: 'failed to create staff account' })
   }
 })
 
