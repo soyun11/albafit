@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client'
 import prisma from '../lib/prisma.js'
 import { generateLinkKey } from '../lib/linkKey.js'
 import { generateRubric } from '../lib/rubric.js'
+import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { INDUSTRY_SCENARIOS } from '../lib/industryScenarios.js'
@@ -97,6 +98,27 @@ router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
 })
 
 // ============================================================
+// 매뉴얼 원문 분리 — POST /api/stores/manual-split (사장님 전용)
+// 업종선택 화면에서 매장 매뉴얼을 통째로 입력하면, 다음 화면(규칙확인)에 카드 하나로 뭉뚱그려
+// 보여주는 대신 Gemini로 규칙 단위 여러 개(제목+내용)로 나눠서 보여준다.
+// 아직 매장을 안 만들었을 수도 있는 시점(업종선택 화면)이라 storeId는 필요 없다.
+// ============================================================
+router.post('/manual-split', requireAuth, requireRole('owner'), async (req, res) => {
+  const { manualText } = req.body ?? {}
+  if (typeof manualText !== 'string' || manualText.trim().length === 0) {
+    return res.status(400).json({ error: 'manualText is required' })
+  }
+
+  try {
+    const rules = await splitManualRules({ manualText: manualText.trim() })
+    return res.json({ rules })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to split manual text' })
+  }
+})
+
+// ============================================================
 // 매장 조회 — GET /api/stores/:linkKey
 // (알바가 매장 링크로 들어왔을 때, 그 링크가 진짜 있는 매장인지 확인할 때 씀)
 // ============================================================
@@ -127,15 +149,20 @@ router.get('/:linkKey', async (req, res) => {
 // ============================================================
 router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, res) => {
   const { linkKey } = req.params // URL 경로에서 매장 링크 꺼냄
-  const { category, rawText } = req.body ?? {} // 요청 body에서 규칙 원문(그리고 선택적으로 카테고리) 꺼냄
+  const { category, rawText, items } = req.body ?? {} // 요청 body에서 규칙 원문(그리고 선택적으로 카테고리·카드별 원본) 꺼냄
 
-  // 입력값 검증 — rawText는 필수, category는 선택
+  // 입력값 검증 — rawText는 필수, category·items는 선택
   if (typeof rawText !== 'string' || rawText.trim().length === 0) {
     // trim()으로 앞뒤 공백을 지운 뒤 길이가 0이면 "빈 값이나 다름없다"고 판단
     return res.status(400).json({ error: 'rawText is required' })
   }
   if (category !== undefined && (typeof category !== 'string' || category.length > 50)) {
     return res.status(400).json({ error: 'category must be a string of 50 characters or fewer' })
+  }
+  // items — "기준 재설정"에서 원래 라벨 그대로 복원하기 위한 카드별 원본 배열. 예전 클라이언트는 아예
+  // 안 보낼 수도 있어서(하위호환) undefined면 그냥 통과시키고, 보냈는데 배열이 아니면만 막는다.
+  if (items !== undefined && !Array.isArray(items)) {
+    return res.status(400).json({ error: 'items must be an array' })
   }
 
   try {
@@ -156,17 +183,17 @@ router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, re
       data: {
         storeId: store.id, // 이 규칙이 어느 매장 것인지 연결(외래키)
         ...(category !== undefined && { category }), // category가 있을 때만 포함
+        ...(items !== undefined && { items }), // items가 있을 때만 포함 — 안 보내면 컬럼은 null로 남음
         rawText,
       },
     })
 
-    // 3단계: 이번에 새로 저장한 규칙 하나만이 아니라, 이 매장이 "지금까지 입력한 규칙 전부"를 다시 불러옴.
-    // findMany = 조건에 맞는 row를 배열로 전부 가져오는 Prisma 명령(findUnique/findFirst는 하나만, findMany는 여러 개).
-    const allRules = await prisma.storeRule.findMany({ where: { storeId: store.id } })
-    // allRules는 [{rawText: '...'}, {rawText: '...'}, ...] 같은 객체 배열.
-    // .map()으로 각 row에서 rawText 문자열만 뽑아 새 배열을 만들고, .join('\n\n')으로 그 문자열들을 줄바꿈 두 번으로 이어붙임.
-    // 즉 "규칙 여러 개를 한 덩어리의 긴 텍스트"로 합치는 것 — Gemini 프롬프트에 그대로 넣기 위해서.
-    const combinedRulesText = allRules.map((rule) => rule.rawText).join('\n\n')
+    // 3단계: 루브릭 생성엔 방금 저장한 이 제출 내용만 쓴다 — "지금까지 쌓인 규칙 전부"를 매번 다시
+    // 합치면(예전엔 그렇게 했음) "기준 재설정"처럼 같은 화면을 여러 번 왕복할 때마다 이전 제출 내용까지
+    // 겹쳐서 저장돼 규칙이 4개→8개→16개로 배로 불어나는 버그가 있었다. rawText 자체는 항상 그 시점의
+    // "전체 규칙 목록"을 담아 제출되므로(RulesInput이 켜진 카드 전부를 합쳐서 보냄), 이번 제출 하나면 충분하다.
+    // 과거 store_rules row들은 지우지 않고 그대로 남아있어(원문 보존 원칙) 나중에 감사/이력 확인엔 쓸 수 있다.
+    const combinedRulesText = storeRule.rawText
 
     // 4단계: 이 매장 업종의 시나리오 3개마다 각각 루브릭을 만들어야 함.
     // 그런데 각 시나리오의 "Gemini한테 루브릭 만들어달라고 부탁하는" 부분이 실제로 20초 넘게 걸림(직접 테스트로 확인함).
@@ -205,6 +232,7 @@ router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, re
         const criteria = await generateRubric({
           scenarioType: scenarioDef.type,
           scenarioTitle: scenarioDef.title,
+          situation: scenarioDef.situation,
           rawRulesText: combinedRulesText,
         })
 
@@ -247,6 +275,246 @@ router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, re
     // store 조회부터 루브릭 저장까지 이 try 블록 안 어디서든 에러가 나면 전부 여기로 옴
     console.error(err)
     return res.status(500).json({ error: 'failed to save rules and generate rubric' })
+  }
+})
+
+// ============================================================
+// 내 매장의 저장된 규칙 원문 조회 — GET /api/stores/me/rules (사장님 전용)
+// "기준 재설정" 화면에서 그동안 입력한 규칙을 다시 불러와 수정할 수 있게 해준다.
+// 가장 최근 제출(row) 하나만 돌려준다 — POST /:linkKey/rules도 루브릭을 만들 때 이제 최신 제출
+// 하나만 쓰도록 바꿨으니(과거엔 전부 합쳐서 중복이 배로 쌓이는 버그가 있었다), "지금 루브릭이 실제로
+// 근거하는 규칙"과 정확히 같은 내용을 보여주려면 여기도 최신 것 하나만 가져와야 한다.
+// ============================================================
+router.get('/me/rules', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const latest = await prisma.storeRule.findFirst({
+      where: { storeId: req.user.storeId },
+      orderBy: { createdAt: 'desc' },
+    })
+    // items가 없으면(items 컬럼 생기기 전에 저장된 과거 row) null — 프론트는 그때 raw_text를 파싱해서
+    // SAVED 라벨로만 복원하는 예전 방식으로 폴백한다.
+    return res.json({ rawText: latest?.rawText ?? '', items: latest?.items ?? null })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch rules' })
+  }
+})
+
+// ============================================================
+// 내 매장의 루브릭 전체 조회 — GET /api/stores/me/rubrics (사장님 전용)
+// 대시보드의 "기준 관리"에서 온보딩 이후에도 다시 들어와서 루브릭을 보고 고칠 수 있게 해준다.
+// RulesInput→RubricApproval 흐름에서 쓰던 것과 같은 모양({..., scenarioType, scenarioTitle})으로 내려줘서
+// 프론트가 RubricApproval 컴포넌트를 그대로 재사용할 수 있게 한다.
+// ============================================================
+router.get('/me/rubrics', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const scenarios = await prisma.scenario.findMany({ where: { storeId: req.user.storeId } })
+
+    const rubrics = await Promise.all(
+      scenarios.map(async (scenario) => {
+        const latest = await prisma.rubric.findFirst({
+          where: { scenarioId: scenario.id },
+          orderBy: { version: 'desc' },
+        })
+        if (!latest) return null
+        return { ...latest, scenarioType: scenario.type, scenarioTitle: scenario.title }
+      })
+    )
+
+    // 아직 루브릭이 없는 시나리오(이론상 규칙을 한 번도 안 저장한 매장)는 null이 섞이니 걸러낸다.
+    return res.json({ rubrics: rubrics.filter(Boolean) })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch rubrics' })
+  }
+})
+
+// ============================================================
+// 알바별 진행 상황 집계 — GET /api/stores/me/staff-report (사장님 전용)
+// 대시보드 통계·리포트 목록이 지금까지 mock 데이터였던 걸 실제 훈련 기록으로 교체한다.
+//
+// training_sessions에는 알바 계정을 가리키는 외래키가 없고 staff_label(자유 텍스트)만 있다 — 원래
+// "로그인 없는 알바가 리포트에서 구분용으로 남기는 별칭" 용도였다(docs/checklist.md 설계). 지금은
+// TrainingSession.jsx가 로그인한 알바의 user.name을 자동으로 staffLabel에 넣어주므로, 이름이 같으면
+// 같은 사람이라고 보고 매칭한다 — 완벽한 방법은 아니지만(동명이인 시 섞일 수 있음) 지금 스키마로
+// 가능한 최선이고, 정확한 방법은 나중에 training_sessions에 staff_id 외래키를 추가하는 것.
+// ============================================================
+router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const [staffUsers, scenarios, sessions] = await Promise.all([
+      prisma.user.findMany({ where: { storeId: req.user.storeId, role: 'staff' }, orderBy: { createdAt: 'asc' } }),
+      prisma.scenario.findMany({ where: { storeId: req.user.storeId } }),
+      prisma.trainingSession.findMany({
+        where: { storeId: req.user.storeId },
+        include: { scenario: true, sessionTurns: true },
+      }),
+    ])
+
+    const totalScenarioTypes = scenarios.length
+
+    // 이 매장 전체에서 "어떤 알바가 어떤 기준을 가장 자주 놓쳤는지" 모아서 코치 팁 하나를 뽑는다.
+    const missByStaff = new Map() // staffLabel -> Map(criterionItem -> count)
+
+    const staff = staffUsers.map((user) => {
+      const mySessions = sessions.filter((s) => s.staffLabel === user.name)
+      const completed = mySessions
+        .filter((s) => s.status === 'completed')
+        .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
+      const completedTypes = new Set(completed.map((s) => s.scenario.type))
+
+      for (const session of completed) {
+        for (const turn of session.sessionTurns) {
+          for (const item of turn.evaluation?.metItems ?? []) {
+            if (item.met) continue
+            if (!missByStaff.has(user.name)) missByStaff.set(user.name, new Map())
+            const itemMap = missByStaff.get(user.name)
+            itemMap.set(item.item, (itemMap.get(item.item) ?? 0) + 1)
+          }
+        }
+      }
+
+      // "최근 점수" = 가장 최근에 끝낸 세션 하나의 기준 충족률. 턴마다 같은 기준을 반복 평가하므로
+      // 턴 전체의 met_items를 그대로 합산하면 안 되고(같은 기준이 여러 번 잡혀 왜곡됨), 기준 항목별로
+      // "한 번이라도 충족했는지"만 세야 한다 — /me/staff/:id/latest-report가 체크리스트를 만드는 것과
+      // 정확히 같은 방식으로 맞춰서, 목록에서 본 점수와 상세화면 점수가 서로 다르게 보이지 않게 한다.
+      let score = null
+      const latestSession = completed[0]
+      if (latestSession) {
+        const metLabels = new Set()
+        const allLabels = new Set()
+        for (const turn of latestSession.sessionTurns) {
+          for (const item of turn.evaluation?.metItems ?? []) {
+            allLabels.add(item.item)
+            if (item.met) metLabels.add(item.item)
+          }
+        }
+        if (allLabels.size > 0) {
+          score = Math.round((metLabels.size / allLabels.size) * 100)
+        }
+      }
+
+      const status =
+        mySessions.length === 0
+          ? 'pending'
+          : totalScenarioTypes > 0 && completedTypes.size >= totalScenarioTypes
+            ? 'done'
+            : 'active'
+
+      return {
+        id: user.id,
+        name: user.name,
+        progress: totalScenarioTypes > 0 ? Math.round((completedTypes.size / totalScenarioTypes) * 100) : 0,
+        done: `${completedTypes.size}/${totalScenarioTypes}`,
+        score: score === null ? '—' : `${score}점`,
+        status,
+      }
+    })
+
+    const scored = staff.filter((s) => s.score !== '—')
+    const avgScore =
+      scored.length > 0
+        ? Math.round(scored.reduce((sum, s) => sum + Number(s.score.replace('점', '')), 0) / scored.length)
+        : null
+
+    let coachTip = null
+    let maxMiss = 0
+    for (const [staffName, itemMap] of missByStaff) {
+      for (const [item, count] of itemMap) {
+        if (count > maxMiss) {
+          maxMiss = count
+          coachTip = { staffName, item }
+        }
+      }
+    }
+
+    return res.json({
+      staff,
+      stats: {
+        totalStaff: staffUsers.length,
+        avgScore,
+        activeCount: staff.filter((s) => s.status === 'active').length,
+        pendingCount: staff.filter((s) => s.status === 'pending').length,
+      },
+      coachTip,
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to build staff report' })
+  }
+})
+
+// ============================================================
+// 특정 알바의 가장 최근 리포트 — GET /api/stores/me/staff/:staffId/latest-report (사장님 전용)
+// 리포트 목록에서 알바 행을 클릭했을 때 실제 최근 완료 세션의 체크리스트를 보여준다.
+// ============================================================
+router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const staffUser = await prisma.user.findUnique({ where: { id: req.params.staffId } })
+    if (!staffUser || staffUser.storeId !== req.user.storeId || staffUser.role !== 'staff') {
+      return res.status(404).json({ error: 'staff not found' })
+    }
+
+    const session = await prisma.trainingSession.findFirst({
+      where: { storeId: req.user.storeId, staffLabel: staffUser.name, status: 'completed' },
+      orderBy: { completedAt: 'desc' },
+      include: { scenario: true, sessionTurns: { orderBy: { turnNumber: 'asc' } } },
+    })
+    if (!session) {
+      return res.status(404).json({ error: 'this staff has no completed training yet' })
+    }
+
+    // 체크리스트는 "지금 승인돼있는 최신 루브릭"이 아니라, 그 세션 turn마다 실제로 채점됐던
+    // 기준(evaluation.metItems)에서 그대로 뽑는다. "기준 재설정"으로 루브릭 문구가 그 뒤에 바뀌면
+    // 지금 루브릭과 그때 평가 기록의 item 문구가 안 맞아서 전부 미충족으로 잘못 보일 수 있다 —
+    // 리포트는 항상 "그 순간 실제로 무엇을 기준으로 채점됐는지"를 보여줘야 한다.
+    // 여러 턴에 걸쳐 한 번이라도 충족했으면 그 기준은 "충족"으로 본다 — 실시간 훈련 화면
+    // (TrainingSession.jsx)이 체크리스트를 누적해서 보여주는 것과 같은 규칙.
+    const allLabels = new Set()
+    const metLabels = new Set()
+    for (const turn of session.sessionTurns) {
+      for (const item of turn.evaluation?.metItems ?? []) {
+        allLabels.add(item.item)
+        if (item.met) metLabels.add(item.item)
+      }
+    }
+
+    const checklist = [...allLabels].map((label) => ({
+      label,
+      status: metLabels.has(label) ? 'ok' : 'wait',
+    }))
+
+    // "총 훈련 시간"·업종 태그도 예전엔 고정 문구("18분", "카페 · 디저트 기준")였던 걸 실제 값으로 채운다.
+    const durationMinutes = session.completedAt
+      ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
+      : null
+    const store = await prisma.store.findUnique({ where: { id: req.user.storeId } })
+
+    return res.json({
+      checklist,
+      scenarioTitle: session.scenario.title,
+      staffName: staffUser.name,
+      durationMinutes,
+      industry: store?.industry ?? null,
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch staff report' })
   }
 })
 

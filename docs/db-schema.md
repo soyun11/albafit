@@ -1,6 +1,7 @@
 # db-schema.md — DB 스키마 (PostgreSQL)
 
 > [plan.md](./plan.md) 5-5의 상세 스키마. 매장 맞춤 알바 훈련 서비스 MVP 기준.
+> 필드까지 포함한 그림은 [db-erd.md](./db-erd.md) 참고.
 
 ## 설계 원칙
 
@@ -42,6 +43,7 @@ CREATE TABLE store_rules (
   category      VARCHAR(50),                  -- 예: 환불, 지연, 금지표현
   raw_text      TEXT NOT NULL,
   source        VARCHAR(20) NOT NULL DEFAULT 'text', -- text | photo(v1.5)
+  items         JSONB,                        -- 이 제출의 규칙 카드별 원본([{label, title, content, mascot}]) — "기준 재설정"에서 원래 라벨(예: 매뉴얼 기반) 그대로 복원하려고 저장. 이 컬럼 생기기 전 row는 NULL.
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
