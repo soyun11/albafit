@@ -42,8 +42,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 데이터 모델 (docs/db-schema.md)
 
-- 로그인이 없다 — 모든 데이터는 매장 링크(`stores.link_key`)를 루트로 매달린다. 알바는 계정 없이 세션에 자유 텍스트 라벨(`staff_label`)만 남긴다.
-- 테이블: `stores` → `store_rules`, `scenarios` → `rubrics`, `training_sessions` → `session_turns`.
+- 2026-07-15부터 사장님·알바 둘 다 이메일+비밀번호 계정(`users`, bcrypt+JWT)으로 로그인한다. 매장 링크(`stores.link_key`)는 폐기하지 않고 **알바 초대용**으로 남아있지만, 알바 계정은 셀프 가입이 아니라 로그인한 사장님이 대시보드에서 이메일+초기 비밀번호를 정해 만들어준다(`POST /api/stores/me/staff`). 알바는 로그인 후 `PATCH /api/auth/password`로 자기 비밀번호를 바꿀 수 있다.
+- `POST /api/stores`(매장 생성)는 로그인한 사장님(`role: owner`)만 호출 가능하고, 성공하면 그 계정의 `users.store_id`를 채운 뒤 갱신된 `storeId`를 담은 새 JWT를 응답에 같이 내려준다 — 클라이언트는 이 토큰으로 갈아끼워야 그다음 요청부터 자기 매장 소속으로 인증된다(기존 토큰은 storeId가 비어있는 옛 값이라 새로 발급 없이는 못 씀).
+- 알바는 여전히 훈련 세션에 자유 텍스트 라벨(`staff_label`)을 남길 수 있다 — 이건 계정 인증과 별개로 리포트에서 구분용 별칭을 쓰기 위한 것이다.
+- 테이블: `stores` → `store_rules`, `scenarios` → `rubrics`, `training_sessions` → `session_turns`. `users`는 `store_id`로 `stores`를 참조(nullable — 사장님은 매장 만들기 전엔 비어있음).
 - 구조가 시나리오마다 다르고 통으로 읽고 쓰는 값(루브릭 `criteria`, 페르소나, 평가 결과 등)은 JSONB 컬럼에 담는다.
 - `store_rules.raw_text`는 사장님이 입력한 원문을 그대로 보존한다 — 루브릭 재생성 시 원문이 필요하기 때문에 변환 후에도 지우지 않는다.
 - `rubrics.approved_at`이 null이면 AI가 만든 승인 전 초안 상태다.
