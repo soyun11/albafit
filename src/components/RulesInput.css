@@ -16,26 +16,6 @@
   border-radius: var(--radius-card);
 }.rules-page .mono {
   font-family: var(--font-family-mono);
-}.rules-page .logo-word {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: -0.01em;
-  color: var(--color-text-heading);
-  transition: color 0.15s ease;
-}.rules-page .logo-word:hover {
-  color: var(--color-primary);
-}.rules-page .rules-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 22px 8%;
-}.rules-page .rules-nav-step {
-  font-size: 12px;
-  color: var(--color-text-muted);
 }.rules-page .rules-wrap {
   max-width: 680px;
   margin: 0 auto;
@@ -269,6 +249,14 @@
   border-radius: var(--radius-control);
   border: none;
   cursor: pointer;
+}.rules-page .btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}.rules-page .rules-error {
+  color: #c0392b;
+  font-size: 13px;
+  margin-top: 16px;
+  text-align: right;
 }
 
 @media (max-width: 600px) {.rules-page .footer-bar {

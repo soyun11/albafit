@@ -3,6 +3,7 @@ import './FeedbackReport.css'
 import mascotApprove from '../../img/mascot-approve.png'
 import mascotConfused from '../../img/mascot-confused.png'
 import mascotCoach from '../../img/mascot-coach.png'
+import { INDUSTRIES } from '../lib/industries'
 
 // 실제 훈련 세션 없이 대시보드에서 과거 리포트를 볼 때 쓰는 기본 mock 데이터
 const DEFAULT_ITEMS = [
@@ -37,15 +38,16 @@ function buildItemsFromChecklist(checklist) {
   }))
 }
 
-function FeedbackReport({ onHome, onRetry, checklist, scenarioTag, staffName = '나' }) {
+function FeedbackReport({ onHome, onRetry, checklist, scenarioTag, durationMinutes, industry, staffName = '나' }) {
   const [shared, setShared] = useState(false)
 
   const items = checklist ? buildItemsFromChecklist(checklist) : DEFAULT_ITEMS
   const passedCount = items.filter((item) => item.status === 'ok').length
   const score = Math.round((passedCount / items.length) * 100)
+  const industryLabel = INDUSTRIES.find((i) => i.key === industry)?.label ?? '카페 · 디저트'
   const summaryLine = scenarioTag
-    ? `카페 · 디저트 기준 · ${scenarioTag} 시나리오 완료`
-    : '카페 · 디저트 기준 8개 상황 완료'
+    ? `${industryLabel} 기준 · ${scenarioTag} 시나리오 완료`
+    : `${industryLabel} 기준 8개 상황 완료`
 
   function handleShare() {
     setShared(true)
@@ -89,7 +91,7 @@ function FeedbackReport({ onHome, onRetry, checklist, scenarioTag, staffName = '
             <span>교정 피드백</span>
           </div>
           <div className="metric glass">
-            <b>18분</b>
+            <b>{durationMinutes != null ? `${durationMinutes}분` : '—'}</b>
             <span>총 훈련 시간</span>
           </div>
         </div>

@@ -43,16 +43,35 @@
   display: flex;
   align-items: center;
   gap: 30px;
-}.landing-page .nav-links span {
-  font-size: 13.5px;
-  color: var(--color-text-secondary);
 }.landing-page .nav-menu-link {
   background: none;
   border: none;
   font-size: 13.5px;
+  font-weight: 600;
   color: var(--color-text-secondary);
   cursor: pointer;
+}.landing-page .nav-menu-link:hover {
+  color: var(--color-primary);
+}.landing-page .nav-menu-link.dev-link {
+  font-weight: 400;
   text-decoration: underline;
+  opacity: 0.6;
+}.landing-page .nav-auth {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}.landing-page .nav-link-btn {
+  background: none;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}.landing-page .nav-link-btn:hover {
+  color: var(--color-primary);
+}.landing-page .nav-user {
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
 }.landing-page .nav-cta {
   background: var(--color-text-heading);
   color: #fff;
@@ -99,6 +118,15 @@
   padding: 13px 26px;
   border-radius: var(--radius-control);
   border: none;
+  cursor: pointer;
+}.landing-page .btn-secondary {
+  background: rgba(255, 255, 255, 0.8);
+  color: var(--color-text-heading);
+  font-weight: 600;
+  font-size: 14.5px;
+  padding: 13px 26px;
+  border-radius: var(--radius-control);
+  border: 1px solid rgba(20, 23, 28, 0.14);
   cursor: pointer;
 }.landing-page .hero-preview {
   max-width: 920px;

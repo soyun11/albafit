@@ -3,118 +3,177 @@ import './RubricApproval.css'
 import StepSidebar from './StepSidebar'
 import mascotCoach from '../../img/mascot-coach.png'
 import mascotApprove from '../../img/mascot-approve.png'
+import AppNav from './AppNav'
+import { apiFetch } from '../lib/api'
 
-const INITIAL_CRITERIA = [
-  {
-    id: 1,
-    item: '인사말 확인',
-    required: true,
-    goodExample:
-      '"어서오세요, 주문 도와드릴게요"로 시작하고, 손님이 나갈 땐 "감사합니다, 좋은 하루 되세요"로 마무리한다.',
-    badExample: '인사 없이 바로 주문만 받거나, 손님이 나갈 때 아무 말도 하지 않는다.',
-  },
-  {
-    id: 2,
-    item: '커스텀 음료 요청 응대',
-    required: true,
-    goodExample: '"네 가능해요"로 먼저 답한 뒤, 추가 비용이 있으면 결제 전에 안내한다.',
-    badExample: '가능 여부를 먼저 말하지 않거나, 비용 안내 없이 그냥 결제부터 진행한다.',
-  },
-  {
-    id: 3,
-    item: '포장 · 매장 이용 확인',
-    required: false,
-    goodExample: '주문받을 때 "포장이세요, 매장에서 드시고 가세요?"를 빠짐없이 먼저 물어본다.',
-    badExample: '포장/매장 여부를 확인하지 않고 임의로 처리한다.',
-  },
-]
-
-function RubricApproval({ onHome, onBack, onInvite }) {
-  const [criteria, setCriteria] = useState(INITIAL_CRITERIA)
-  const [approved, setApproved] = useState(false)
-  const [editingId, setEditingId] = useState(null)
+function RubricApproval({
+  onHome,
+  onBack,
+  onInvite,
+  onDone,
+  onNavigate,
+  onChangePassword,
+  onLogout,
+  onStepClick,
+  onResetRules,
+  showSteps,
+  rubrics,
+  onRubricsChange,
+}) {
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [approvingId, setApprovingId] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [editingIndex, setEditingIndex] = useState(null)
   const [draftGood, setDraftGood] = useState('')
   const [draftBad, setDraftBad] = useState('')
 
-  function toggleRequired(id) {
-    setCriteria((prev) =>
-      prev.map((criterion) =>
-        criterion.id === id ? { ...criterion, required: !criterion.required } : criterion
-      )
+  if (!rubrics || rubrics.length === 0) {
+    return (
+      <div className="rubric-page">
+        <AppNav
+          role="owner"
+          current={onDone ? 'rubricManage' : 'rubric'}
+          onNavigate={onNavigate}
+          onChangePassword={onChangePassword}
+          onLogout={onLogout}
+        >
+          {onDone && (
+            <button type="button" className="btn-primary-sm" onClick={onResetRules}>
+              기준 재설정
+            </button>
+          )}
+        </AppNav>
+        {(!onDone || showSteps) && <StepSidebar current={3} onStepClick={onDone ? onStepClick : undefined} />}
+        <div className="rubric-wrap">
+          <p className="sub">아직 만들어진 루브릭이 없어요.</p>
+          <button type="button" className="btn-ghost" onClick={onBack}>
+            ← 이전으로
+          </button>
+        </div>
+      </div>
     )
   }
 
-  function startEdit(criterion) {
-    setEditingId(criterion.id)
-    setDraftGood(criterion.goodExample)
-    setDraftBad(criterion.badExample)
+  const active = rubrics[activeIndex]
+  const allApproved = rubrics.every((r) => r.approvedAt)
+
+  // 이 시나리오의 criteria 배열 전체를 서버에 저장. 내용이 바뀌었으니 서버가 approvedAt을 null로 되돌려준다.
+  async function persistCriteria(newCriteria) {
+    setError('')
+    setSaving(true)
+    try {
+      const updated = await apiFetch(`/api/rubrics/${active.id}`, {
+        method: 'PATCH',
+        body: { criteria: newCriteria },
+      })
+      onRubricsChange(
+        rubrics.map((r) => (r.id === active.id ? { ...r, criteria: updated.criteria, approvedAt: updated.approvedAt } : r))
+      )
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleRequired(index) {
+    const next = active.criteria.map((c, i) => (i === index ? { ...c, required: !c.required } : c))
+    persistCriteria(next)
+  }
+
+  function startEdit(index, criterion) {
+    setEditingIndex(index)
+    setDraftGood(criterion.good_example)
+    setDraftBad(criterion.bad_example)
   }
 
   function cancelEdit() {
-    setEditingId(null)
+    setEditingIndex(null)
   }
 
-  function saveEdit(id) {
+  async function saveEdit(index) {
     const good = draftGood.trim()
     const bad = draftBad.trim()
     if (!good || !bad) return
 
-    setCriteria((prev) =>
-      prev.map((criterion) =>
-        criterion.id === id ? { ...criterion, goodExample: good, badExample: bad } : criterion
-      )
-    )
-    setEditingId(null)
+    const next = active.criteria.map((c, i) => (i === index ? { ...c, good_example: good, bad_example: bad } : c))
+    await persistCriteria(next)
+    setEditingIndex(null)
   }
 
-  function selectAllRequired() {
-    setCriteria((prev) => prev.map((criterion) => ({ ...criterion, required: true })))
-  }
-
-  function handleApprove() {
-    setApproved(true)
-  }
-
-  function handleRevise() {
-    setApproved(false)
+  async function handleApprove(rubric) {
+    setError('')
+    setApprovingId(rubric.id)
+    try {
+      const updated = await apiFetch(`/api/rubrics/${rubric.id}/approve`, { method: 'PATCH' })
+      onRubricsChange(rubrics.map((r) => (r.id === rubric.id ? { ...r, approvedAt: updated.approvedAt } : r)))
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setApprovingId(null)
+    }
   }
 
   return (
     <div className="rubric-page">
-      <nav className="rubric-nav">
-        <button type="button" className="logo-word mono" onClick={onHome}>
-          albafit
-        </button>
-        <span className="rubric-nav-step mono">STEP 3 / 3</span>
-      </nav>
+      <AppNav
+        role="owner"
+        current={onDone ? 'rubricManage' : 'rubric'}
+        onNavigate={onNavigate}
+        onChangePassword={onChangePassword}
+        onLogout={onLogout}
+      >
+        {onDone && (
+          <button type="button" className="btn-primary-sm" onClick={onResetRules}>
+            기준 재설정
+          </button>
+        )}
+      </AppNav>
 
-      <StepSidebar current={3} />
+      {(!onDone || showSteps) && <StepSidebar current={3} onStepClick={onDone ? onStepClick : undefined} />}
 
       <div className="rubric-wrap">
         <div className="rubric-head">
           <img className="mascot-hero" src={mascotCoach} alt="" />
-          <div className="eyebrow mono">매장 정보 · 루브릭 승인</div>
-          <h1>이 기준으로 채점해도 될까요?</h1>
+          <div className="eyebrow mono">매장 정보 · 루브릭 {onDone ? '관리' : '승인'}</div>
+          <h1>{onDone ? '채점 기준을 확인·수정해보세요' : '이 기준으로 채점해도 될까요?'}</h1>
           <p className="sub">
-            방금 정한 매장 규정을 AI가 채점 가능한 기준으로 정리했어요. 필수/선택 여부와 예시를
-            확인하고, 필요하면 직접 수정한 뒤 승인해주세요.
+            {onDone
+              ? '시나리오별 채점 기준이에요. 필요하면 직접 수정하고, 바뀐 내용은 다시 승인해주세요.'
+              : '방금 정한 매장 규정을 AI가 시나리오 3개마다 채점 가능한 기준으로 정리했어요. 필요하면 직접 수정하고, 시나리오별로 각각 승인해주세요.'}
           </p>
-          <button type="button" className="select-all-btn mono" onClick={selectAllRequired}>
-            모두 필수로 설정
-          </button>
         </div>
 
-        {criteria.map((criterion) => {
-          const isEditing = editingId === criterion.id
+        <div className="rubric-tabs">
+          {rubrics.map((rubric, i) => (
+            <button
+              key={rubric.id}
+              type="button"
+              className={`rubric-tab ${i === activeIndex ? 'active' : ''}`}
+              onClick={() => {
+                setActiveIndex(i)
+                setEditingIndex(null)
+              }}
+            >
+              {rubric.scenarioTitle}
+              {rubric.approvedAt ? ' ✓' : ''}
+            </button>
+          ))}
+        </div>
+
+        {active.criteria.map((criterion, i) => {
+          const isEditing = editingIndex === i
 
           return (
-            <div key={criterion.id} className="criterion-card glass">
+            <div key={i} className="criterion-card glass">
               <div className="criterion-top">
                 <div className="criterion-title">{criterion.item}</div>
                 <button
                   type="button"
                   className={`req-toggle ${criterion.required ? '' : 'optional'}`}
-                  onClick={() => toggleRequired(criterion.id)}
+                  onClick={() => toggleRequired(i)}
+                  disabled={saving}
                 >
                   {criterion.required ? '필수' : '선택'}
                 </button>
@@ -139,9 +198,10 @@ function RubricApproval({ onHome, onBack, onInvite }) {
                     <button
                       type="button"
                       className="btn-primary"
-                      onClick={() => saveEdit(criterion.id)}
+                      onClick={() => saveEdit(i)}
+                      disabled={saving}
                     >
-                      저장
+                      {saving ? '저장 중...' : '저장'}
                     </button>
                   </div>
                 </>
@@ -149,19 +209,15 @@ function RubricApproval({ onHome, onBack, onInvite }) {
                 <>
                   <div className="example-row good">
                     <span className="example-icon">✓</span>
-                    <span>{criterion.goodExample}</span>
+                    <span>{criterion.good_example}</span>
                   </div>
                   <div className="example-row bad">
                     <span className="example-icon">✗</span>
-                    <span>{criterion.badExample}</span>
+                    <span>{criterion.bad_example}</span>
                   </div>
                   <div className="criterion-meta">
-                    <button
-                      type="button"
-                      className="edit-link"
-                      onClick={() => startEdit(criterion)}
-                    >
-                      수정하기
+                    <button type="button" className="edit-link" onClick={() => startEdit(i, criterion)}>
+                      EDITABLE · 수정하기
                     </button>
                   </div>
                 </>
@@ -170,31 +226,47 @@ function RubricApproval({ onHome, onBack, onInvite }) {
           )
         })}
 
-        {approved ? (
-          <div className="approved-card glass">
-            <img src={mascotApprove} alt="" />
-            <h3>루브릭이 승인됐어요</h3>
-            <p>이제부터 이 기준으로 알바 훈련·채점이 진행돼요.</p>
-            <button type="button" className="btn-primary" onClick={onInvite}>
-              알바 초대하기 →
-            </button>
-            <button type="button" className="btn-ghost home-link-btn" onClick={onHome}>
-              홈으로
-            </button>
-            <button type="button" className="revise-link" onClick={handleRevise}>
-              승인 취소하고 다시 수정하기
-            </button>
-          </div>
+        {error && <p className="rubric-error">{error}</p>}
+
+        {active.approvedAt ? (
+          <p className="rubric-approved-note">이 시나리오는 승인 완료됐어요.</p>
         ) : (
           <div className="footer-bar">
             <div className="footer-actions">
               <button type="button" className="btn-ghost" onClick={onBack}>
                 ← 이전
               </button>
-              <button type="button" className="btn-primary" onClick={handleApprove}>
-                이 기준으로 승인하기
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={() => handleApprove(active)}
+                disabled={approvingId === active.id || saving}
+              >
+                {approvingId === active.id ? '승인 중...' : '이 기준으로 승인하기'}
               </button>
             </div>
+          </div>
+        )}
+
+        {allApproved && (
+          <div className="approved-card glass">
+            <img src={mascotApprove} alt="" />
+            <h3>시나리오 {rubrics.length}개 모두 승인됐어요</h3>
+            <p>이제부터 이 기준으로 알바 훈련·채점이 진행돼요.</p>
+            {onDone ? (
+              <button type="button" className="btn-primary" onClick={onDone}>
+                대시보드로 돌아가기
+              </button>
+            ) : (
+              <>
+                <button type="button" className="btn-primary" onClick={onInvite}>
+                  알바 초대하기 →
+                </button>
+                <button type="button" className="btn-ghost home-link-btn" onClick={onHome}>
+                  홈으로
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
