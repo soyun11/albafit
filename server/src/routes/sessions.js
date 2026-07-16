@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma.js'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { getCustomerReply, getOpeningLine } from '../lib/customerAgent.js'
+import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
 import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
 
@@ -16,20 +16,22 @@ const MAX_TURNS = 3
 // 승인된 루브릭이 있는 시나리오에서만 시작할 수 있다("AI는 생성, 사장님은 승인" 게이트).
 // ============================================================
 router.post('/', requireAuth, async (req, res) => {
-  const { scenarioType, staffLabel } = req.body ?? {}
+  const { scenarioId, staffLabel } = req.body ?? {}
 
   if (!req.user.storeId) {
     return res.status(400).json({ error: 'no store linked to this account' })
   }
-  if (typeof scenarioType !== 'string') {
-    return res.status(400).json({ error: 'scenarioType is required' })
+  if (typeof scenarioId !== 'string') {
+    return res.status(400).json({ error: 'scenarioId is required' })
   }
 
   try {
-    const scenario = await prisma.scenario.findFirst({
-      where: { storeId: req.user.storeId, type: scenarioType },
-    })
-    if (!scenario) {
+    // findFirst({storeId, type}) 대신 findUnique(id)로 바뀜 — type은 더 이상 조회 키가 아니라
+    // 그냥 순번(scenario-1, scenario-2...)이라 여러 매장에 겹칠 수 있다. id로 정확히 하나를 집고,
+    // 그 시나리오가 실제로 이 매장 것인지(소유권)는 별도로 확인한다 — 남의 매장 scenarioId를
+    // 넣어서 훈련을 시작하는 걸 막기 위해.
+    const scenario = await prisma.scenario.findUnique({ where: { id: scenarioId } })
+    if (!scenario || scenario.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'scenario not found for this store' })
     }
 
@@ -51,9 +53,9 @@ router.post('/', requireAuth, async (req, res) => {
 
     return res.status(201).json({
       session,
-      scenario: { type: scenario.type, title: scenario.title },
+      scenario: { id: scenario.id, title: scenario.title },
       rubric: { id: rubric.id, criteria: rubric.criteria },
-      openingLine: getOpeningLine(scenario.type),
+      openingLine: getOpeningLineForScenario(scenario),
     })
   } catch (err) {
     console.error(err)
@@ -190,8 +192,8 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
           // 다시 캐묻지 않는다(pickFinalAttempts는 리포트 집계처럼 "최종 결론 하나"만 필요할 때만 쓴다).
           const history = buildConversationHistory([...session.sessionTurns, turn])
 
-          nextCustomerMessage = await getCustomerReply({
-            scenarioType: session.scenario.type,
+          nextCustomerMessage = await getCustomerReplyForScenario({
+            situation: session.scenario.persona?.situation,
             criteria: rubric.criteria,
             history,
           })

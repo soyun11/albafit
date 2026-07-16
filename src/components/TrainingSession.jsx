@@ -13,7 +13,7 @@ const DEFAULT_HINT = '체크리스트 항목을 모두 확인했어요. 마무�
 // 몇 개로 그려야 할지 미리 계산하는 용도로만 쓴다. 실제 하트 잔량은 항상 서버 응답값을 따른다.
 const HEARTS_PER_CRITERION = 2
 
-function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, scenario = 'delay', staffLabel }) {
+function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, scenario, staffLabel }) {
   const [loading, setLoading] = useState(true)
   const [startError, setStartError] = useState('')
   const [sessionId, setSessionId] = useState(null)
@@ -43,7 +43,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
       try {
         const data = await apiFetch('/api/sessions', {
           method: 'POST',
-          body: { scenarioType: scenario, staffLabel },
+          body: { scenarioId: scenario, staffLabel },
         })
         if (cancelled) return
 

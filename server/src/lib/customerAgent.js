@@ -87,8 +87,9 @@ export function getOpeningLine(scenarioType) {
   return (SCENARIOS[scenarioType] ?? SCENARIOS.delay).opening
 }
 
-function buildSystemPrompt({ scenarioType, criteria }) {
-  const { situation } = SCENARIOS[scenarioType] ?? SCENARIOS.delay
+// situation을 직접 받는다(예전엔 SCENARIOS[scenarioType]에서 찾았음) — 매장이 AI로 제안받은
+// 시나리오는 SCENARIOS 맵에 없는 자유 텍스트 situation을 쓰므로, 조회 대신 파라미터로 분리했다.
+function buildSystemPrompt({ situation, criteria }) {
   const criteriaText = criteria
     .map((c) => `- ${c.item}${c.required ? ' (필수)' : ' (선택)'}`)
     .join('\n')
@@ -102,13 +103,9 @@ ${criteriaText}
 한두 문장의 짧고 자연스러운 구어체로만 답한다. 손님 대사만 말하고 상황 설명이나 지문은 쓰지 않는다.`
 }
 
-/**
- * @param {{ scenarioType: string, criteria: Array<{item: string, required: boolean}>, history: Array<{sender: 'customer'|'staff', text: string}> }} params
- * @returns {Promise<string>} 손님의 다음 발화
- */
-export async function getCustomerReply({ scenarioType, criteria, history }) {
+async function callCustomerAgent({ situation, criteria, history }) {
   const messages = [
-    { role: 'system', content: buildSystemPrompt({ scenarioType, criteria }) },
+    { role: 'system', content: buildSystemPrompt({ situation, criteria }) },
     ...history.map((turn) => ({
       role: turn.sender === 'staff' ? 'user' : 'assistant',
       content: turn.text,
@@ -121,4 +118,28 @@ export async function getCustomerReply({ scenarioType, criteria, history }) {
   })
 
   return response.choices[0].message.content
+}
+
+/**
+ * @param {{ scenarioType: string, criteria: Array<{item: string, required: boolean}>, history: Array<{sender: 'customer'|'staff', text: string}> }} params
+ * @returns {Promise<string>} 손님의 다음 발화
+ */
+export async function getCustomerReply({ scenarioType, criteria, history }) {
+  const { situation } = SCENARIOS[scenarioType] ?? SCENARIOS.delay
+  return callCustomerAgent({ situation, criteria, history })
+}
+
+// 아래 두 함수는 guest.js(체험하기, 고정 SCENARIOS 맵)는 안 쓰고, 실제 매장의 AI 제안 시나리오
+// (Scenario.persona = { situation, opening })에서만 쓴다.
+
+export function getOpeningLineForScenario(scenario) {
+  return scenario.persona?.opening ?? ''
+}
+
+/**
+ * @param {{ situation: string, criteria: Array<{item: string, required: boolean}>, history: Array<{sender: 'customer'|'staff', text: string}> }} params
+ * @returns {Promise<string>} 손님의 다음 발화
+ */
+export async function getCustomerReplyForScenario({ situation, criteria, history }) {
+  return callCustomerAgent({ situation, criteria, history })
 }

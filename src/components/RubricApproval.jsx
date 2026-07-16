@@ -141,7 +141,7 @@ function RubricApproval({
           <p className="sub">
             {onDone
               ? '시나리오별 채점 기준이에요. 필요하면 직접 수정하고, 바뀐 내용은 다시 승인해주세요.'
-              : '방금 정한 매장 규정을 AI가 시나리오 3개마다 채점 가능한 기준으로 정리했어요. 필요하면 직접 수정하고, 시나리오별로 각각 승인해주세요.'}
+              : `방금 정한 매장 규정을 보고 AI가 실전 상황 ${rubrics.length}개를 제안하고, 시나리오별 채점 기준을 정리했어요. 필요하면 직접 수정하고, 시나리오별로 각각 승인해주세요.`}
           </p>
         </div>
 
@@ -161,6 +161,21 @@ function RubricApproval({
             </button>
           ))}
         </div>
+
+        {(active.situation || active.opening) && (
+          <div className="scenario-situation-block glass">
+            {active.situation && (
+              <p>
+                <strong>상황</strong> · {active.situation}
+              </p>
+            )}
+            {active.opening && (
+              <p>
+                <strong>손님이 이렇게 시작해요</strong> · &ldquo;{active.opening}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
 
         {active.criteria.map((criterion, i) => {
           const isEditing = editingIndex === i

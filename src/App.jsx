@@ -51,7 +51,7 @@ function App() {
   // 매뉴얼을 안 썼으면 빈 배열이고, 그러면 규칙확인 화면은 기본 예시 카드만 보여준다.
   const [manualRules, setManualRules] = useState([])
   const [rubrics, setRubrics] = useState([])
-  const [selectedScenario, setSelectedScenario] = useState('delay')
+  const [selectedScenario, setSelectedScenario] = useState(null)
   const [trainingResult, setTrainingResult] = useState(null)
   const [reportStaffName, setReportStaffName] = useState(null)
   // "기준 재설정" 흐름 중인지 — true면 industry/rules/rubricManage 화면이 StepSidebar를 같이 보여주고
@@ -157,8 +157,8 @@ function App() {
     setScreen('rules')
   }
 
-  function handleScenarioNext(scenarioKey) {
-    setSelectedScenario(scenarioKey)
+  function handleScenarioNext(scenarioId) {
+    setSelectedScenario(scenarioId)
     setScreen('training')
   }
 
@@ -358,7 +358,6 @@ function App() {
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
-        industry={user?.store?.industry}
       />
     )
   }

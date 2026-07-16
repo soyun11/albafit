@@ -83,7 +83,8 @@ model StoreRule {
   items     Json?
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  store     Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  scenarios Scenario[]
 
   @@map("store_rules")
 }
@@ -91,6 +92,9 @@ model StoreRule {
 model Scenario {
   id           String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   storeId      String   @map("store_id") @db.Uuid
+  // 이 시나리오가 어느 규칙 제출(배치) 때 AI가 제안한 것인지. nullable — 과거 고정 3개 시나리오는 값 없음.
+  // "지금 이 매장의 현재 시나리오"를 고를 때 storeId + (storeId의 최신 StoreRule.id와 일치하는 storeRuleId)로 거른다.
+  storeRuleId  String?  @map("store_rule_id") @db.Uuid
   type         String   @db.VarChar(30)
   title        String   @db.VarChar(100)
   persona      Json
@@ -98,6 +102,7 @@ model Scenario {
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
 
   store            Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  storeRule        StoreRule?        @relation(fields: [storeRuleId], references: [id], onDelete: SetNull)
   rubrics          Rubric[]
   trainingSessions TrainingSession[]
 

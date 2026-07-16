@@ -75,6 +75,15 @@
   background: var(--color-surface-selected);
   border-color: var(--color-primary);
   color: var(--color-primary);
+}.rubric-page .scenario-situation-block {
+  text-align: left;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}.rubric-page .scenario-situation-block strong {
+  color: var(--color-text-heading);
 }.rubric-page .rubric-error {
   color: #c0392b;
   font-size: 13px;

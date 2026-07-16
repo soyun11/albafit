@@ -3,10 +3,10 @@ import { Prisma } from '@prisma/client'
 import prisma from '../lib/prisma.js'
 import { generateLinkKey } from '../lib/linkKey.js'
 import { generateRubric } from '../lib/rubric.js'
+import { proposeScenarios } from '../lib/scenarioProposer.js'
 import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
-import { INDUSTRY_SCENARIOS } from '../lib/industryScenarios.js'
 import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
@@ -14,6 +14,19 @@ import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
 const router = Router()
 
 const MAX_LINK_KEY_RETRIES = 3 // link_key 중복 시 재시도할 최대 횟수
+
+// 이 매장이 가장 최근에 제출한 규칙(StoreRule)의 id — "지금 이 매장의 현재 시나리오 배치"를 가려낼 때
+// 쓰는 기준이다. 규칙을 재설정할 때마다 시나리오를 새로 만들기 때문에(POST /:linkKey/rules), 여러
+// 조회(훈련 가능한 시나리오 목록, 루브릭 관리, 진행률 집계)가 전부 이 기준으로 "최신 배치만" 걸러야
+// 재설정을 여러 번 한 매장에서 예전 배치와 최신 배치가 섞이지 않는다.
+async function getLatestStoreRuleId(storeId) {
+  const latest = await prisma.storeRule.findFirst({
+    where: { storeId },
+    orderBy: { createdAt: 'desc' },
+    select: { id: true },
+  })
+  return latest?.id ?? null
+}
 
 // ============================================================
 // 매장 링크 발급 — POST /api/stores
@@ -142,11 +155,11 @@ router.get('/:linkKey', async (req, res) => {
 // ============================================================
 // 규칙 원문 저장 + 루브릭 자동 생성 — POST /api/stores/:linkKey/rules (사장님 전용)
 // (사장님이 규칙확인 화면 이전 단계에서 "매뉴얼/규정 텍스트"를 제출했을 때 호출되는 API)
-// 흐름: 규칙 저장 → 지금까지 쌓인 규칙 전부 모으기 → 업종별 시나리오 3개마다 Gemini로 루브릭 생성 → 저장
+// 흐름: 규칙 저장 → AI가 규칙 기반으로 시나리오 상황 제안(proposeScenarios) → 제안된 상황마다 Gemini로 루브릭 생성 → 저장
 //
 // requireAuth + 소유권 확인 필수 — 원래 이 라우트에 인증이 아예 없어서, linkKey만 알면 누구나
-// 남의 매장에 규칙을 밀어넣고 Gemini를 3번씩(시나리오 수만큼) 호출시킬 수 있었다. Gemini 무료 티어
-// 일일 한도가 20회뿐이라(직접 겪음) 악용되면 서비스 전체 AI 기능이 마비될 수 있는 진짜 보안 문제였다.
+// 남의 매장에 규칙을 밀어넣고 Gemini를 여러 번(시나리오 제안 1번 + 시나리오 수만큼 루브릭 생성) 호출시킬 수 있었다.
+// Gemini 무료 티어 일일 한도가 20회뿐이라(직접 겪음) 악용되면 서비스 전체 AI 기능이 마비될 수 있는 진짜 보안 문제였다.
 // ============================================================
 router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, res) => {
   const { linkKey } = req.params // URL 경로에서 매장 링크 꺼냄
@@ -196,81 +209,65 @@ router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, re
     // 과거 store_rules row들은 지우지 않고 그대로 남아있어(원문 보존 원칙) 나중에 감사/이력 확인엔 쓸 수 있다.
     const combinedRulesText = storeRule.rawText
 
-    // 4단계: 이 매장 업종의 시나리오 3개마다 각각 루브릭을 만들어야 함.
-    // 그런데 각 시나리오의 "Gemini한테 루브릭 만들어달라고 부탁하는" 부분이 실제로 20초 넘게 걸림(직접 테스트로 확인함).
-    // 만약 for문으로 하나씩 순서대로(await 걸어가며) 처리하면 3개 * 20초 = 60초 넘게 걸려서 사용자가 너무 오래 기다려야 함.
+    // 4단계: 예전엔 업종별로 고정된 시나리오 3개(지연/품절/규칙위반)에 규칙을 억지로 끼워맞췄지만,
+    // 매장마다 규칙이 다르니 그 틀에 안 맞는 규칙(예: "테이크아웃 컵 리드 제공")은 훈련에 반영될 방법이
+    // 없었다. 대신 방금 저장한 규칙 원문을 보고 AI가 실전 훈련용 상황(시나리오)을 직접 제안하게 한다.
+    const proposedScenarios = await proposeScenarios({
+      rawRulesText: combinedRulesText,
+      industry: store.industry,
+    })
+
+    // 5단계: 제안된 상황마다 시나리오+루브릭을 항상 새로 만든다 — 기존처럼 같은 타입의 시나리오를
+    // 재사용하지 않는다. "이번 제출로 만든 배치"와 "예전 배치"를 storeRuleId로 구분해야, 재설정을
+    // 여러 번 해도 시나리오가 뒤섞이지 않고 "최신 배치"만 화면에 노출할 수 있다(설계 문서 3절).
     //
     // Promise.all(배열) — 배열 안의 여러 비동기 작업을 "동시에 전부 시작"시켜놓고, 그 작업들이 "다 끝날 때까지"만 기다림.
-    // 세 시나리오는 서로 결과를 참조하지 않는 완전히 독립적인 작업이라 병렬로 돌려도 안전함.
-    // 이렇게 하면 전체 소요 시간이 (3개 합) 대신 (가장 오래 걸리는 것 1개) 정도로 줄어듦.
-    const scenarioDefs = INDUSTRY_SCENARIOS[store.industry] ?? INDUSTRY_SCENARIOS.cafe
-
-    // scenarioDefs.map(async (scenarioDef) => {...}) — 시나리오 배열의 각 항목마다 "비동기 작업 함수"를 하나씩 만들어서
-    // [Promise, Promise, Promise] 형태의 배열을 만들고, 그걸 Promise.all에 넘김.
+    // 제안된 상황들은 서로 결과를 참조하지 않는 독립적인 작업이라 병렬로 돌려도 안전함(rubric.js 호출이 시나리오당 20초 가까이 걸림).
     const rubrics = await Promise.all(
-      scenarioDefs.map(async (scenarioDef) => {
-        // 4-1. 이 매장에 해당 타입(예: 'delay')의 시나리오가 이미 DB에 있는지 확인.
-        // findFirst = 조건에 맞는 것 중 첫 번째 하나만 가져옴(여러 개 있어도 첫 번째만).
-        let scenario = await prisma.scenario.findFirst({
-          where: { storeId: store.id, type: scenarioDef.type },
+      proposedScenarios.map(async (proposed, i) => {
+        // 5-1. 시나리오는 항상 새로 만든다. type엔 조회 키로서의 의미가 없어져서(4절 참고, 이제 조회는
+        // scenario.id로 함) 그냥 순번만 채운다. persona에 AI가 제안한 situation/opening을 실제로 채워 쓴다
+        // — 원래 "나중에 채울 자리"로 비어있던 컬럼이라 새 컬럼 추가 없이 이 자리를 채우는 것.
+        const scenario = await prisma.scenario.create({
+          data: {
+            storeId: store.id,
+            storeRuleId: storeRule.id,
+            type: `scenario-${i + 1}`,
+            title: proposed.title,
+            persona: { situation: proposed.situation, opening: proposed.opening },
+            initialState: {},
+          },
         })
-        // 없으면(scenario가 null이면) 새로 만듦 — 매장이 처음 규칙을 등록할 때만 이 분기를 타고,
-        // 두 번째부터는 이미 있으니 새로 안 만들고 기존 것을 재사용함.
-        if (!scenario) {
-          scenario = await prisma.scenario.create({
-            data: {
-              storeId: store.id,
-              type: scenarioDef.type,
-              title: scenarioDef.title,
-              persona: {}, // 손님 역할의 성격·말투 — 아직 안 만들어서 빈 객체로 둠(나중에 채울 자리)
-              initialState: {}, // 시나리오 시작 시점의 상태(주문 상태 등) — 아직 안 만들어서 빈 객체
-            },
-          })
-        }
 
-        // 4-2. 실제 LLM 호출 — server/src/lib/rubric.js의 generateRubric 함수를 불러서 씀.
-        // 규칙 원문(combinedRulesText)과 이 시나리오 정보를 넘기면, Gemini가 만든 채점 기준 배열을 돌려받음.
+        // 5-2. 실제 LLM 호출 — server/src/lib/rubric.js의 generateRubric 함수는 그대로 재사용.
         const criteria = await generateRubric({
-          scenarioType: scenarioDef.type,
-          scenarioTitle: scenarioDef.title,
-          situation: scenarioDef.situation,
+          scenarioType: scenario.type,
+          scenarioTitle: proposed.title,
+          situation: proposed.situation,
           rawRulesText: combinedRulesText,
         })
 
-        // 4-3. 같은 시나리오에 이미 루브릭이 있으면(사장님이 예전에도 규칙을 등록한 적 있으면) 버전 번호를 하나 올림.
-        // orderBy: { version: 'desc' } — version이 큰 순서(내림차순)로 정렬해서 findFirst로 가장 최신 걸 가져옴.
-        const latestRubric = await prisma.rubric.findFirst({
-          where: { scenarioId: scenario.id },
-          orderBy: { version: 'desc' },
-        })
-        // latestRubric?.version — 옵셔널 체이닝. latestRubric이 null이면 undefined.
-        // (undefined) ?? 0 — nullish 병합. 왼쪽이 null/undefined일 때만 오른쪽 값(0)을 씀.
-        // 즉 "이전 루브릭이 있으면 그 버전 + 1, 없으면(처음이면) 1"이 됨.
-        const nextVersion = (latestRubric?.version ?? 0) + 1
-
-        // 4-4. 새 루브릭을 DB에 저장. 이 map 콜백 함수 자체가 async라서, 여기서 return한 값이
-        // Promise.all이 만드는 배열(rubrics)의 한 원소가 됨.
-        // approvedAt: null — db-schema.md 설계대로 "AI가 막 만든 승인 전 초안" 상태를 의미함.
-        // 나중에 사장님이 루브릭승인 화면에서 승인 버튼을 누르면 이 값이 실제 승인 시각으로 채워지는 API가 따로 필요함(아직 없음).
+        // 5-3. 매번 새 Scenario라서(기존처럼 같은 시나리오를 재사용하지 않음) 버전 조회·bump 로직이
+        // 필요 없어졌다 — 항상 1. approvedAt: null은 여전히 "AI가 막 만든 승인 전 초안" 상태를 의미.
         return prisma.rubric.create({
           data: {
             scenarioId: scenario.id,
-            criteria, // Gemini가 만들어준 JSON 배열을 그대로 JSONB 컬럼에 저장
-            version: nextVersion,
+            criteria,
+            version: 1,
             approvedAt: null,
           },
         })
       })
     )
-    // 여기까지 오면 rubrics는 [루브릭1, 루브릭2, 루브릭3] 형태의 배열(시나리오 3개 * 각각의 저장 결과)
-    // scenarioDefs.map으로 만들었으니 인덱스가 그대로 대응된다 — 프론트에서 탭으로 구분해 보여줄 수 있게 타입/제목을 같이 붙여준다.
+    // 프론트가 탭으로 구분해 보여줄 수 있게, 루브릭마다 시나리오 메타(제목·상황·오프닝)를 같이 붙여준다.
     const rubricsWithScenario = rubrics.map((rubric, i) => ({
       ...rubric,
-      scenarioType: scenarioDefs[i].type,
-      scenarioTitle: scenarioDefs[i].title,
+      scenarioTitle: proposedScenarios[i].title,
+      situation: proposedScenarios[i].situation,
+      opening: proposedScenarios[i].opening,
     }))
 
-    // 저장한 규칙 원문 + 새로 만든 루브릭 3개를 한 번에 응답으로 돌려줌
+    // 저장한 규칙 원문 + AI가 새로 제안한 시나리오 개수만큼의 루브릭을 한 번에 응답으로 돌려줌
     return res.status(201).json({ storeRule, rubrics: rubricsWithScenario })
   } catch (err) {
     // store 조회부터 루브릭 저장까지 이 try 블록 안 어디서든 에러가 나면 전부 여기로 옴
@@ -306,10 +303,40 @@ router.get('/me/rules', requireAuth, requireRole('owner'), async (req, res) => {
 })
 
 // ============================================================
+// 훈련 시작 가능한 시나리오 목록 — GET /api/stores/me/training-scenarios (사장님+알바 공용)
+// ScenarioSelect.jsx가 이 API로 카드를 그린다. requireRole('owner')를 안 붙인 이유 — 알바도
+// 훈련을 시작하려면 호출해야 하는 API라서, 로그인만 확인하고 역할은 안 가린다.
+// "최신 배치"만 + "승인된 것"만 보여준다 — 재설정을 여러 번 한 매장이라도 예전 시나리오가 섞여
+// 보이지 않고, 사장님이 아직 승인 안 한 초안은 알바 화면에 노출되지 않는다.
+// ============================================================
+router.get('/me/training-scenarios', requireAuth, async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const latestStoreRuleId = await getLatestStoreRuleId(req.user.storeId)
+
+    const scenarios = await prisma.scenario.findMany({
+      where: { storeId: req.user.storeId, storeRuleId: latestStoreRuleId, rubrics: { some: { approvedAt: { not: null } } } },
+      orderBy: { createdAt: 'asc' },
+    })
+
+    return res.json({
+      scenarios: scenarios.map((s) => ({ id: s.id, title: s.title, situation: s.persona?.situation ?? '' })),
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch training scenarios' })
+  }
+})
+
+// ============================================================
 // 내 매장의 루브릭 전체 조회 — GET /api/stores/me/rubrics (사장님 전용)
 // 대시보드의 "기준 관리"에서 온보딩 이후에도 다시 들어와서 루브릭을 보고 고칠 수 있게 해준다.
 // RulesInput→RubricApproval 흐름에서 쓰던 것과 같은 모양({..., scenarioType, scenarioTitle})으로 내려줘서
 // 프론트가 RubricApproval 컴포넌트를 그대로 재사용할 수 있게 한다.
+// "최신 배치"만 보여준다 — 안 그러면 재설정을 할 때마다 예전 시나리오의 루브릭 탭까지 계속 쌓여 보인다.
 // ============================================================
 router.get('/me/rubrics', requireAuth, requireRole('owner'), async (req, res) => {
   if (!req.user.storeId) {
@@ -317,7 +344,10 @@ router.get('/me/rubrics', requireAuth, requireRole('owner'), async (req, res) =>
   }
 
   try {
-    const scenarios = await prisma.scenario.findMany({ where: { storeId: req.user.storeId } })
+    const latestStoreRuleId = await getLatestStoreRuleId(req.user.storeId)
+    const scenarios = await prisma.scenario.findMany({
+      where: { storeId: req.user.storeId, storeRuleId: latestStoreRuleId },
+    })
 
     const rubrics = await Promise.all(
       scenarios.map(async (scenario) => {
@@ -326,7 +356,13 @@ router.get('/me/rubrics', requireAuth, requireRole('owner'), async (req, res) =>
           orderBy: { version: 'desc' },
         })
         if (!latest) return null
-        return { ...latest, scenarioType: scenario.type, scenarioTitle: scenario.title }
+        return {
+          ...latest,
+          scenarioType: scenario.type,
+          scenarioTitle: scenario.title,
+          situation: scenario.persona?.situation ?? '',
+          opening: scenario.persona?.opening ?? '',
+        }
       })
     )
 
@@ -354,9 +390,13 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
   }
 
   try {
+    const latestStoreRuleId = await getLatestStoreRuleId(req.user.storeId)
+
     const [staffUsers, scenarios, sessions] = await Promise.all([
       prisma.user.findMany({ where: { storeId: req.user.storeId, role: 'staff' }, orderBy: { createdAt: 'asc' } }),
-      prisma.scenario.findMany({ where: { storeId: req.user.storeId } }),
+      // 최신 배치만 센다 — 안 그러면 재설정을 여러 번 한 매장은 예전 시나리오까지 다 더해져서
+      // "진행률(N/M)"의 분모(M)가 재설정할 때마다 계속 불어난다.
+      prisma.scenario.findMany({ where: { storeId: req.user.storeId, storeRuleId: latestStoreRuleId } }),
       prisma.trainingSession.findMany({
         where: { storeId: req.user.storeId },
         include: { scenario: true, sessionTurns: true },
@@ -364,6 +404,10 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
     ])
 
     const totalScenarioTypes = scenarios.length
+    // "이번 배치의 시나리오 중 몇 개를 완료했는지"를 셀 때, scenario.type(예: 'scenario-1')은 더 이상
+    // 배치를 넘나드는 고유값이 아니다(매 배치가 1번부터 다시 시작) — scenario.id로 세야 다른 배치의
+    // 같은 순번 시나리오를 완료한 걸 이번 배치 완료로 잘못 세지 않는다.
+    const currentScenarioIds = new Set(scenarios.map((s) => s.id))
 
     // 이 매장 전체에서 "어떤 알바가 어떤 기준을 가장 자주 놓쳤는지" 모아서 코치 팁 하나를 뽑는다.
     const missByStaff = new Map() // staffLabel -> Map(criterionItem -> count)
@@ -373,7 +417,7 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
       const completed = mySessions
         .filter((s) => s.status === 'completed')
         .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
-      const completedTypes = new Set(completed.map((s) => s.scenario.type))
+      const completedTypes = new Set(completed.filter((s) => currentScenarioIds.has(s.scenarioId)).map((s) => s.scenarioId))
 
       for (const session of completed) {
         // 재입력(같은 turnNumber에 여러 시도)이 있으면 turnNumber당 최종 시도 하나만 센다 —

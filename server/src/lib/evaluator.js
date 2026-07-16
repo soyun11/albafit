@@ -66,9 +66,16 @@ ${criteria.map((c) => `- [${c.required ? '필수' : '선택'}] ${c.item} (좋은
 
   const parsed = JSON.parse(response.text)
 
+  // Gemini가 met_items[].item에 프롬프트의 "[필수]/[선택] " 표시까지 그대로 echo해서 돌려줄 때가
+  // 있다(직접 확인함) — 그러면 아래 missingCriteria가 criteria의 순수 item 텍스트와 정확히 안
+  // 맞아떨어져서, 실제로 충족한 기준이 미충족으로 잘못 계산된다. 여기서 접두어를 벗겨 정규화한다.
+  const stripLabelPrefix = (text) => text.replace(/^\[(필수|선택)\]\s*/, '')
+
   // 이전 시도에서 이미 충족한 항목은 LLM 판단과 무관하게 met:true로 강제 유지한다 —
   // missingCriteria를 LLM이 아니라 여기서 직접 계산하는 아래 원칙과 같은 방어막.
-  const metItems = parsed.met_items.map((m) => (previouslyMetSet.has(m.item) ? { ...m, met: true } : m))
+  const metItems = parsed.met_items
+    .map((m) => ({ ...m, item: stripLabelPrefix(m.item) }))
+    .map((m) => (previouslyMetSet.has(m.item) ? { ...m, met: true } : m))
   for (const item of previouslyMetItems) {
     if (!metItems.find((m) => m.item === item)) metItems.push({ item, met: true })
   }

@@ -1,4 +1,5 @@
-// IndustrySelect.jsx, ScenarioSelect.jsx, GuestTry.jsx가 공유하는 업종·시나리오 목록.
+// IndustrySelect.jsx, GuestTry.jsx가 공유하는 업종·시나리오 목록 (로그인한 매장의 훈련 화면은
+// ScenarioSelect.jsx가 GET /api/stores/me/training-scenarios로 AI 제안 시나리오를 따로 받아온다).
 // 컴포넌트 파일에서 직접 export하면 Fast Refresh가 깨져서(oxlint 경고) 별도 파일로 뺐다.
 
 export const INDUSTRIES = [
