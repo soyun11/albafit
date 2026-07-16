@@ -7,6 +7,7 @@ import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { INDUSTRY_SCENARIOS } from '../lib/industryScenarios.js'
+import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -375,7 +376,9 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
       const completedTypes = new Set(completed.map((s) => s.scenario.type))
 
       for (const session of completed) {
-        for (const turn of session.sessionTurns) {
+        // 재입력(같은 turnNumber에 여러 시도)이 있으면 turnNumber당 최종 시도 하나만 센다 —
+        // 안 그러면 재입력을 많이 한 턴 하나 때문에 "가장 자주 놓친 기준" 집계가 부풀려진다.
+        for (const turn of pickFinalAttempts(session.sessionTurns)) {
           for (const item of turn.evaluation?.metItems ?? []) {
             if (item.met) continue
             if (!missByStaff.has(user.name)) missByStaff.set(user.name, new Map())
@@ -385,23 +388,15 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
         }
       }
 
-      // "최근 점수" = 가장 최근에 끝낸 세션 하나의 기준 충족률. 턴마다 같은 기준을 반복 평가하므로
-      // 턴 전체의 met_items를 그대로 합산하면 안 되고(같은 기준이 여러 번 잡혀 왜곡됨), 기준 항목별로
-      // "한 번이라도 충족했는지"만 세야 한다 — /me/staff/:id/latest-report가 체크리스트를 만드는 것과
-      // 정확히 같은 방식으로 맞춰서, 목록에서 본 점수와 상세화면 점수가 서로 다르게 보이지 않게 한다.
+      // "최근 점수" = 가장 최근에 끝낸 세션의 하트 잔량 비율(남은 하트 / 총 하트). 훈련 화면에서
+      // 알바가 보는 점수와 같은 기준이어야 목록·상세화면 점수가 서로 다르게 보이지 않는다 —
+      // /me/staff/:id/latest-report도 정확히 같은 방식(computeHearts)으로 맞춘다.
       let score = null
       const latestSession = completed[0]
       if (latestSession) {
-        const metLabels = new Set()
-        const allLabels = new Set()
-        for (const turn of latestSession.sessionTurns) {
-          for (const item of turn.evaluation?.metItems ?? []) {
-            allLabels.add(item.item)
-            if (item.met) metLabels.add(item.item)
-          }
-        }
-        if (allLabels.size > 0) {
-          score = Math.round((metLabels.size / allLabels.size) * 100)
+        const { maxHearts, heartsRemaining } = computeHearts(latestSession.sessionTurns)
+        if (maxHearts > 0) {
+          score = Math.round((heartsRemaining / maxHearts) * 100)
         }
       }
 
@@ -473,7 +468,7 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
     const session = await prisma.trainingSession.findFirst({
       where: { storeId: req.user.storeId, staffLabel: staffUser.name, status: 'completed' },
       orderBy: { completedAt: 'desc' },
-      include: { scenario: true, sessionTurns: { orderBy: { turnNumber: 'asc' } } },
+      include: { scenario: true, sessionTurns: { orderBy: [{ turnNumber: 'asc' }, { retryCount: 'asc' }] } },
     })
     if (!session) {
       return res.status(404).json({ error: 'this staff has no completed training yet' })
@@ -487,7 +482,7 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
     // (TrainingSession.jsx)이 체크리스트를 누적해서 보여주는 것과 같은 규칙.
     const allLabels = new Set()
     const metLabels = new Set()
-    for (const turn of session.sessionTurns) {
+    for (const turn of pickFinalAttempts(session.sessionTurns)) {
       for (const item of turn.evaluation?.metItems ?? []) {
         allLabels.add(item.item)
         if (item.met) metLabels.add(item.item)
@@ -498,6 +493,10 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
       label,
       status: metLabels.has(label) ? 'ok' : 'wait',
     }))
+
+    // 점수는 목록(/me/staff-report)과 같은 기준(하트 잔량 비율)으로 맞춘다 — computeHearts에 넘기는
+    // sessionTurns가 같으니 자동으로 목록 점수와 일치한다.
+    const { maxHearts, heartsRemaining } = computeHearts(session.sessionTurns)
 
     // "총 훈련 시간"·업종 태그도 예전엔 고정 문구("18분", "카페 · 디저트 기준")였던 걸 실제 값으로 채운다.
     const durationMinutes = session.completedAt
@@ -511,6 +510,8 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
       staffName: staffUser.name,
       durationMinutes,
       industry: store?.industry ?? null,
+      heartsRemaining,
+      maxHearts,
     })
   } catch (err) {
     console.error(err)

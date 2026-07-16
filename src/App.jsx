@@ -162,8 +162,15 @@ function App() {
     setScreen('training')
   }
 
-  function handleTrainingFinish(checklist, scenarioTag, durationMinutes) {
-    setTrainingResult({ checklist, scenarioTag, durationMinutes, industry: user?.store?.industry })
+  function handleTrainingFinish(checklist, scenarioTag, durationMinutes, heartsRemaining, maxHearts) {
+    setTrainingResult({
+      checklist,
+      scenarioTag,
+      durationMinutes,
+      industry: user?.store?.industry,
+      heartsRemaining,
+      maxHearts,
+    })
     setReportStaffName(null)
     setScreen('feedback')
   }
@@ -178,6 +185,8 @@ function App() {
         scenarioTag: data.scenarioTitle,
         durationMinutes: data.durationMinutes,
         industry: data.industry,
+        heartsRemaining: data.heartsRemaining,
+        maxHearts: data.maxHearts,
       })
       setReportStaffName(data.staffName)
       setScreen('feedback')
@@ -374,6 +383,8 @@ function App() {
         scenarioTag={trainingResult?.scenarioTag}
         durationMinutes={trainingResult?.durationMinutes}
         industry={trainingResult?.industry}
+        heartsRemaining={trainingResult?.heartsRemaining}
+        maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
       />
     )
