@@ -16,6 +16,7 @@
 - [미들웨어](./be/middleware.md)
 - [라우터 분리 패턴](./be/router-structure.md)
 - [JWT 인증](./be/jwt-auth.md)
+- [프레임워크 vs 배포 플랫폼](./be/deployment-vs-framework.md)
 
 ### DB
 (아직 없음)
