@@ -49,13 +49,18 @@ CREATE TABLE store_rules (
 
 -- 시나리오: 업종 템플릿 기반, 손님 역할의 페르소나·초기 상태를 담음
 CREATE TABLE scenarios (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  store_id      UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
-  type          VARCHAR(30) NOT NULL,         -- delay | out_of_stock | rule_violation
-  title         VARCHAR(100) NOT NULL,
-  persona       JSONB NOT NULL,               -- 손님 역할 성격·말투·초기 감정
-  initial_state JSONB NOT NULL DEFAULT '{}',  -- 주문 상태·손님 기분 등 시나리오 초기값
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  store_id       UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
+  -- 이 시나리오를 AI가 제안하게 만든 규칙 제출(배치). nullable — 과거 고정 업종 시나리오는 값 없음.
+  -- "지금 이 매장의 현재 시나리오"는 store_id + (이 매장의 최신 store_rules.id와 일치하는 store_rule_id)로 거른다.
+  -- 규칙을 재설정할 때마다 이 테이블에 새 row가 생기고(기존 row 재사용 안 함), 예전 row는 지우지 않고 그대로 둔다
+  -- (onDelete Cascade로 연결된 과거 training_sessions·rubrics까지 같이 지워지면 리포트 히스토리가 깨지기 때문).
+  store_rule_id  UUID REFERENCES store_rules(id) ON DELETE SET NULL,
+  type           VARCHAR(30) NOT NULL,         -- 조회 키로는 안 쓴다(scenario-1, scenario-2... 순번만). 실제 조회는 id로.
+  title          VARCHAR(100) NOT NULL,
+  persona        JSONB NOT NULL,               -- AI가 제안한 { situation, opening } — 손님이 처음 건넬 대사·상황 한 줄
+  initial_state  JSONB NOT NULL DEFAULT '{}',  -- 주문 상태·손님 기분 등 시나리오 초기값
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- 루브릭: 규칙 → 채점 가능한 기준으로 변환된 결과. approved_at이 null이면 승인 전 초안

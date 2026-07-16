@@ -1,8 +1,9 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma.js'
 import { requireAuth } from '../middleware/requireAuth.js'
-import { getCustomerReply, getOpeningLine } from '../lib/customerAgent.js'
+import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
 
 const router = Router()
 
@@ -15,20 +16,22 @@ const MAX_TURNS = 3
 // 승인된 루브릭이 있는 시나리오에서만 시작할 수 있다("AI는 생성, 사장님은 승인" 게이트).
 // ============================================================
 router.post('/', requireAuth, async (req, res) => {
-  const { scenarioType, staffLabel } = req.body ?? {}
+  const { scenarioId, staffLabel } = req.body ?? {}
 
   if (!req.user.storeId) {
     return res.status(400).json({ error: 'no store linked to this account' })
   }
-  if (typeof scenarioType !== 'string') {
-    return res.status(400).json({ error: 'scenarioType is required' })
+  if (typeof scenarioId !== 'string') {
+    return res.status(400).json({ error: 'scenarioId is required' })
   }
 
   try {
-    const scenario = await prisma.scenario.findFirst({
-      where: { storeId: req.user.storeId, type: scenarioType },
-    })
-    if (!scenario) {
+    // findFirst({storeId, type}) 대신 findUnique(id)로 바뀜 — type은 더 이상 조회 키가 아니라
+    // 그냥 순번(scenario-1, scenario-2...)이라 여러 매장에 겹칠 수 있다. id로 정확히 하나를 집고,
+    // 그 시나리오가 실제로 이 매장 것인지(소유권)는 별도로 확인한다 — 남의 매장 scenarioId를
+    // 넣어서 훈련을 시작하는 걸 막기 위해.
+    const scenario = await prisma.scenario.findUnique({ where: { id: scenarioId } })
+    if (!scenario || scenario.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'scenario not found for this store' })
     }
 
@@ -50,9 +53,9 @@ router.post('/', requireAuth, async (req, res) => {
 
     return res.status(201).json({
       session,
-      scenario: { type: scenario.type, title: scenario.title },
+      scenario: { id: scenario.id, title: scenario.title },
       rubric: { id: rubric.id, criteria: rubric.criteria },
-      openingLine: getOpeningLine(scenario.type),
+      openingLine: getOpeningLineForScenario(scenario),
     })
   } catch (err) {
     console.error(err)
@@ -74,7 +77,9 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
   try {
     const session = await prisma.trainingSession.findUnique({
       where: { id: req.params.id },
-      include: { scenario: true, sessionTurns: { orderBy: { turnNumber: 'asc' } } },
+      // 재입력이 생기면 같은 turnNumber에 row가 여러 개 쌓이므로, retryCount까지 정렬 기준에 넣어
+      // 항상 "턴 순서 → 그 턴 안 시도 순서"로 안정적으로 정렬되게 한다.
+      include: { scenario: true, sessionTurns: { orderBy: [{ turnNumber: 'asc' }, { retryCount: 'asc' }] } },
     })
     if (!session || session.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'session not found' })
@@ -91,48 +96,123 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
       return res.status(400).json({ error: 'rubric not approved yet' })
     }
 
-    const evaluation = await evaluateTurn({ criteria: rubric.criteria, customerMessage, staffAnswer })
+    // 재입력 판별 — 클라이언트가 "이건 재입력이에요"라고 따로 알려주지 않는다. 이 세션의 마지막
+    // row가 "같은 손님 질문에 대해 아직 통과 못 했음"이면 이번 제출을 그 턴의 재입력으로 본다.
+    // 재입력 횟수 자체에는 더 이상 턴별 상한이 없다 — 세션 전체 하트가 다 떨어지기 전까지는 같은
+    // 질문을 계속 다시 시도할 수 있다(하트 소진 시 세션 자체가 끝나므로 아래에서 별도로 처리).
+    const lastTurn = session.sessionTurns.at(-1)
+    const isRetry = !!lastTurn && lastTurn.passed === false
 
-    const turnNumber = session.sessionTurns.length + 1
+    const turnNumber = isRetry ? lastTurn.turnNumber : (lastTurn?.turnNumber ?? 0) + 1
+    const retryCount = isRetry ? lastTurn.retryCount + 1 : 0
+    // 재입력이면 클라이언트가 보낸 값 대신 직전 시도의 손님 질문을 그대로 쓴다 — "같은 질문에
+    // 다시 답한다"는 전제를 서버가 직접 보장한다(클라이언트 상태가 어긋나도 DB엔 항상 일관되게 남음).
+    const effectiveCustomerMessage = isRetry ? lastTurn.customerMessage : customerMessage
+
+    // 재입력이면 같은 turnNumber의 이전 시도들에서 이미 충족했던 기준을 모아 이번 채점에 반영한다 —
+    // 그래야 이미 잘한 부분을 재입력 채점에서 또 "미충족"이라고 지적하지 않는다.
+    const previouslyMetItems = isRetry
+      ? [
+          ...new Set(
+            session.sessionTurns
+              .filter((t) => t.turnNumber === turnNumber)
+              .flatMap((t) => t.evaluation?.metItems ?? [])
+              .filter((m) => m.met)
+              .map((m) => m.item)
+          ),
+        ]
+      : []
+
+    const evaluation = await evaluateTurn({
+      criteria: rubric.criteria,
+      customerMessage: effectiveCustomerMessage,
+      staffAnswer,
+      previouslyMetItems,
+    })
+
     const turn = await prisma.sessionTurn.create({
       data: {
         sessionId: session.id,
         turnNumber,
-        customerMessage,
+        retryCount,
+        customerMessage: effectiveCustomerMessage,
         staffAnswer,
         evaluation,
         passed: evaluation.passed,
       },
     })
 
-    const completed = turnNumber >= MAX_TURNS
+    // 하트(재입력 예산) — 세션 전체를 통틀어 "새로 충족시킨 기준이 하나도 없었던" 시도 횟수만큼
+    // 깎인다. 방금 만든 turn까지 포함해서 계산해야 이번 시도가 하트에 반영된다.
+    const { maxHearts, heartsRemaining } = computeHearts([...session.sessionTurns, turn])
+    const heartsExhausted = heartsRemaining <= 0
+
     let nextCustomerMessage = null
     let durationMinutes = null
+    let completed = false
+    let allCriteriaMet = false
+    let retryNeeded = false
 
-    if (completed) {
+    if (heartsExhausted) {
+      // 하트를 다 썼다 — 지금 이 턴을 통과했는지와 무관하게 훈련 전체를 여기서 즉시 끝낸다.
+      completed = true
       const completedAt = new Date()
       await prisma.trainingSession.update({
         where: { id: session.id },
         data: { status: 'completed', completedAt },
       })
-      // 리포트 화면의 "총 훈련 시간" — 예전엔 "18분"으로 고정돼있던 값을 실제 시작~완료 시각 차이로 계산.
       durationMinutes = Math.max(1, Math.round((completedAt - session.startedAt) / 60000))
     } else {
-      // 지금까지의 대화(과거 턴 전부 + 이번 턴)를 히스토리로 넘겨서 다음 손님 발화를 만든다.
-      const history = session.sessionTurns.flatMap((t) => [
-        { sender: 'customer', text: t.customerMessage },
-        { sender: 'staff', text: t.staffAnswer },
-      ])
-      history.push({ sender: 'customer', text: customerMessage }, { sender: 'staff', text: staffAnswer })
+      // 하트가 남아있으면, 통과 못 한 턴은 재입력이 필요한 상태로 응답하고 턴을 넘기지 않는다 —
+      // 재입력 자체에는 더 이상 별도 상한이 없다(위 하트 계산이 사실상의 상한 역할을 한다).
+      retryNeeded = !evaluation.passed
 
-      nextCustomerMessage = await getCustomerReply({
-        scenarioType: session.scenario.type,
-        criteria: rubric.criteria,
-        history,
-      })
+      if (!retryNeeded) {
+        // 이 시나리오의 루브릭 기준을 세션 전체(턴을 넘나들며)에서 한 번이라도 다 충족했으면, 남은
+        // 턴을 억지로 더 채우지 않고 바로 끝낸다 — 이미 다 확인된 것을 손님이 계속 캐묻게 하지 않기 위해.
+        // turnNumber마다 최종 확정된 시도만 모아서(pickFinalAttempts) 그 위에서 충족 여부를 합친다.
+        const finalAttempts = pickFinalAttempts([...session.sessionTurns, turn])
+        const everMetItems = new Set(
+          finalAttempts.flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
+        )
+        allCriteriaMet = rubric.criteria.filter((c) => c.required).every((c) => everMetItems.has(c.item))
+
+        completed = allCriteriaMet || turnNumber >= MAX_TURNS
+        if (completed) {
+          const completedAt = new Date()
+          await prisma.trainingSession.update({
+            where: { id: session.id },
+            data: { status: 'completed', completedAt },
+          })
+          // 리포트 화면의 "총 훈련 시간" — 예전엔 "18분"으로 고정돼있던 값을 실제 시작~완료 시각 차이로 계산.
+          durationMinutes = Math.max(1, Math.round((completedAt - session.startedAt) / 60000))
+        } else {
+          // 손님 에이전트에는 화면에 실제로 보인 대화 그대로 넘긴다 — 재입력으로 답이 여러 번
+          // 나뉘었어도(방금 만든 turn까지 포함) 그 시도들을 다 포함해야, 손님이 이미 들은 내용을
+          // 다시 캐묻지 않는다(pickFinalAttempts는 리포트 집계처럼 "최종 결론 하나"만 필요할 때만 쓴다).
+          const history = buildConversationHistory([...session.sessionTurns, turn])
+
+          nextCustomerMessage = await getCustomerReplyForScenario({
+            situation: session.scenario.persona?.situation,
+            criteria: rubric.criteria,
+            history,
+          })
+        }
+      }
     }
 
-    return res.status(201).json({ turn, evaluation, nextCustomerMessage, completed, durationMinutes })
+    return res.status(201).json({
+      turn,
+      evaluation,
+      nextCustomerMessage,
+      completed,
+      allCriteriaMet,
+      retryNeeded,
+      heartsRemaining,
+      maxHearts,
+      heartsExhausted,
+      durationMinutes,
+    })
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to submit turn' })
@@ -146,7 +226,7 @@ router.get('/:id', requireAuth, async (req, res) => {
   try {
     const session = await prisma.trainingSession.findUnique({
       where: { id: req.params.id },
-      include: { scenario: true, sessionTurns: { orderBy: { turnNumber: 'asc' } } },
+      include: { scenario: true, sessionTurns: { orderBy: [{ turnNumber: 'asc' }, { retryCount: 'asc' }] } },
     })
     if (!session || session.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'session not found' })

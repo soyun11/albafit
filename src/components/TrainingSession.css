@@ -32,7 +32,7 @@
   display: flex;
   align-items: center;
   gap: 14px;
-  margin: 8px 0 24px;
+  margin: 8px 0 10px;
 }.session-page .progress-track {
   flex: 1;
   height: 6px;
@@ -47,6 +47,26 @@
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   flex-shrink: 0;
+}.session-page .hearts-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+}.session-page .hearts-row {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}.session-page .heart {
+  font-size: 15px;
+  line-height: 1;
+}.session-page .heart.full {
+  color: #e0473d;
+}.session-page .heart.empty {
+  color: rgba(20, 23, 28, 0.18);
+}.session-page .hearts-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
 }.session-page .session-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;
@@ -228,6 +248,67 @@
 }.session-page .feedback-bubble.confused {
   background: rgba(224, 145, 61, 0.1);
   border: 1px solid rgba(224, 145, 61, 0.3);
+}
+
+.session-page .session-celebrate {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 28px 16px 20px;
+  text-align: center;
+  animation: celebrate-in 0.45s ease;
+}.session-page .celebrate-mascot {
+  width: var(--mascot-size-feature);
+  height: var(--mascot-size-feature);
+  object-fit: cover;
+  object-position: var(--mascot-crop-position);
+  border-radius: 50%;
+  margin-bottom: 6px;
+  animation: celebrate-bounce 0.6s ease 0.1s;
+}.session-page .celebrate-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-text-heading);
+}.session-page .celebrate-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+}.session-page .btn-primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-primary);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 12px 22px;
+  border-radius: var(--radius-control);
+  border: none;
+  cursor: pointer;
+}.session-page .celebrate-cta {
+  margin-top: 14px;
+}@keyframes celebrate-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}@keyframes celebrate-bounce {
+  0% {
+    transform: scale(0.6);
+  }
+  55% {
+    transform: scale(1.08);
+  }
+  100% {
+    transform: scale(1);
+  }
+}@media (prefers-reduced-motion: reduce) {.session-page .session-celebrate,
+  .session-page .celebrate-mascot {
+    animation: none;
+  }
 }
 
 @media (max-width: 720px) {.session-page .session-grid {

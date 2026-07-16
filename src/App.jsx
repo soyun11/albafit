@@ -51,7 +51,7 @@ function App() {
   // 매뉴얼을 안 썼으면 빈 배열이고, 그러면 규칙확인 화면은 기본 예시 카드만 보여준다.
   const [manualRules, setManualRules] = useState([])
   const [rubrics, setRubrics] = useState([])
-  const [selectedScenario, setSelectedScenario] = useState('delay')
+  const [selectedScenario, setSelectedScenario] = useState(null)
   const [trainingResult, setTrainingResult] = useState(null)
   const [reportStaffName, setReportStaffName] = useState(null)
   // "기준 재설정" 흐름 중인지 — true면 industry/rules/rubricManage 화면이 StepSidebar를 같이 보여주고
@@ -157,13 +157,20 @@ function App() {
     setScreen('rules')
   }
 
-  function handleScenarioNext(scenarioKey) {
-    setSelectedScenario(scenarioKey)
+  function handleScenarioNext(scenarioId) {
+    setSelectedScenario(scenarioId)
     setScreen('training')
   }
 
-  function handleTrainingFinish(checklist, scenarioTag, durationMinutes) {
-    setTrainingResult({ checklist, scenarioTag, durationMinutes, industry: user?.store?.industry })
+  function handleTrainingFinish(checklist, scenarioTag, durationMinutes, heartsRemaining, maxHearts) {
+    setTrainingResult({
+      checklist,
+      scenarioTag,
+      durationMinutes,
+      industry: user?.store?.industry,
+      heartsRemaining,
+      maxHearts,
+    })
     setReportStaffName(null)
     setScreen('feedback')
   }
@@ -178,6 +185,8 @@ function App() {
         scenarioTag: data.scenarioTitle,
         durationMinutes: data.durationMinutes,
         industry: data.industry,
+        heartsRemaining: data.heartsRemaining,
+        maxHearts: data.maxHearts,
       })
       setReportStaffName(data.staffName)
       setScreen('feedback')
@@ -349,7 +358,6 @@ function App() {
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
-        industry={user?.store?.industry}
       />
     )
   }
@@ -374,6 +382,8 @@ function App() {
         scenarioTag={trainingResult?.scenarioTag}
         durationMinutes={trainingResult?.durationMinutes}
         industry={trainingResult?.industry}
+        heartsRemaining={trainingResult?.heartsRemaining}
+        maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
       />
     )

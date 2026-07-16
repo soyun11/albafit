@@ -38,12 +38,25 @@ function buildItemsFromChecklist(checklist) {
   }))
 }
 
-function FeedbackReport({ onHome, onRetry, checklist, scenarioTag, durationMinutes, industry, staffName = '나' }) {
+function FeedbackReport({
+  onHome,
+  onRetry,
+  checklist,
+  scenarioTag,
+  durationMinutes,
+  industry,
+  heartsRemaining,
+  maxHearts,
+  staffName = '나',
+}) {
   const [shared, setShared] = useState(false)
 
   const items = checklist ? buildItemsFromChecklist(checklist) : DEFAULT_ITEMS
   const passedCount = items.filter((item) => item.status === 'ok').length
-  const score = Math.round((passedCount / items.length) * 100)
+  // 점수는 훈련 중 남은 하트 비율로 매긴다(기준을 하나도 못 채운 답변에서만 하트가 깎이는 방식) —
+  // 하트 정보가 없는 경우(과거 데이터 등)에는 기준 충족 비율로 대신 계산한다.
+  const score =
+    maxHearts > 0 ? Math.round((heartsRemaining / maxHearts) * 100) : Math.round((passedCount / items.length) * 100)
   const industryLabel = INDUSTRIES.find((i) => i.key === industry)?.label ?? '카페 · 디저트'
   const summaryLine = scenarioTag
     ? `${industryLabel} 기준 · ${scenarioTag} 시나리오 완료`
@@ -87,7 +100,7 @@ function FeedbackReport({ onHome, onRetry, checklist, scenarioTag, durationMinut
             <span>기준 충족 상황</span>
           </div>
           <div className="metric glass">
-            <b>{items.length - passedCount}건</b>
+            <b>{maxHearts > 0 ? maxHearts - heartsRemaining : items.length - passedCount}건</b>
             <span>교정 피드백</span>
           </div>
           <div className="metric glass">

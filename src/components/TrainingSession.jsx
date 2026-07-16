@@ -8,10 +8,12 @@ import mascotCoach from '../../img/mascot-coach.png'
 import mascotApprove from '../../img/mascot-approve.png'
 import mascotConfused from '../../img/mascot-confused.png'
 
-const MAX_TURNS = 3
 const DEFAULT_HINT = '체크리스트 항목을 모두 확인했어요. 마무리 인사를 건네보세요.'
+// 서버(sessions.js)의 HEARTS_PER_CRITERION과 같은 값 — 서버 응답이 오기 전(훈련 시작 직후) 하트를
+// 몇 개로 그려야 할지 미리 계산하는 용도로만 쓴다. 실제 하트 잔량은 항상 서버 응답값을 따른다.
+const HEARTS_PER_CRITERION = 2
 
-function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, scenario = 'delay', staffLabel }) {
+function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, scenario, staffLabel }) {
   const [loading, setLoading] = useState(true)
   const [startError, setStartError] = useState('')
   const [sessionId, setSessionId] = useState(null)
@@ -21,11 +23,16 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   const [currentCustomerMessage, setCurrentCustomerMessage] = useState('')
   const [checklist, setChecklist] = useState([])
   const [inputValue, setInputValue] = useState('')
-  const [turnIndex, setTurnIndex] = useState(0)
   const [feedback, setFeedback] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  const [completed, setCompleted] = useState(false)
+  // celebrating: 훈련이 끝나서(기준 다 충족 or 3턴 소진) 결과 화면으로 넘어가기 직전, 축하 배너를
+  // 잠깐 보여주는 상태. 이 상태가 되면 더 이상 입력을 못 받고, 잠시 후 자동으로 리포트로 이동한다.
+  const [celebrating, setCelebrating] = useState(false)
+  const [allCriteriaMet, setAllCriteriaMet] = useState(false)
+  const [heartsExhausted, setHeartsExhausted] = useState(false)
   const [durationMinutes, setDurationMinutes] = useState(null)
+  const [maxHearts, setMaxHearts] = useState(0)
+  const [heartsRemaining, setHeartsRemaining] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -36,7 +43,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
       try {
         const data = await apiFetch('/api/sessions', {
           method: 'POST',
-          body: { scenarioType: scenario, staffLabel },
+          body: { scenarioId: scenario, staffLabel },
         })
         if (cancelled) return
 
@@ -48,6 +55,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
         )
         setMessages([{ sender: 'customer', text: data.openingLine }])
         setCurrentCustomerMessage(data.openingLine)
+        // 첫 응답이 오기 전까지 보여줄 기본 하트 개수 — 실제 값은 첫 제출 후 서버 응답으로 갱신된다.
+        const startingHearts = data.rubric.criteria.length * HEARTS_PER_CRITERION
+        setMaxHearts(startingHearts)
+        setHeartsRemaining(startingHearts)
       } catch (err) {
         if (!cancelled) setStartError(err.message)
       } finally {
@@ -69,7 +80,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   async function handleSubmit(event) {
     event.preventDefault()
     const trimmed = inputValue.trim()
-    if (!trimmed || submitting || completed) return
+    if (!trimmed || submitting || celebrating) return
 
     setMessages((prev) => [...prev, { sender: 'staff', text: trimmed }])
     setInputValue('')
@@ -82,24 +93,47 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
       })
 
       const metItemLabels = new Set(data.evaluation.metItems.filter((m) => m.met).map((m) => m.item))
-      setChecklist((prev) =>
-        prev.map((item) => (metItemLabels.has(item.label) ? { ...item, status: 'ok' } : item))
+      // setChecklist(prev => ...) 대신 값을 직접 계산해둔다 — 아래에서 훈련이 끝났을 때 onFinish로
+      // 넘길 최신 체크리스트가 필요한데, setChecklist는 비동기라 여기서 곧장 최신값을 못 읽는다.
+      const updatedChecklist = checklist.map((item) =>
+        metItemLabels.has(item.label) ? { ...item, status: 'ok' } : item
       )
+      setChecklist(updatedChecklist)
+      setMaxHearts(data.maxHearts)
+      setHeartsRemaining(data.heartsRemaining)
 
-      setFeedback({
-        type: data.evaluation.passed ? 'approve' : 'confused',
-        text: data.evaluation.feedback,
-      })
-
-      if (data.completed) {
-        setCompleted(true)
+      if (data.heartsExhausted) {
+        // 하트를 다 썼다 — 이번 답을 통과했는지와 무관하게 여기서 바로 끝난다.
+        setFeedback({ type: 'confused', text: data.evaluation.feedback })
+        setHeartsExhausted(true)
+        setAllCriteriaMet(false)
         setDurationMinutes(data.durationMinutes)
+        setCelebrating(true)
+      } else if (data.retryNeeded) {
+        // 같은 손님 질문에 다시 답할 차례 — turnIndex/currentCustomerMessage를 그대로 둬서 다음 제출도
+        // 같은 질문에 대한 재입력으로 서버에 전달되게 한다. 입력창은 celebrating이 false라 자동으로 유지된다.
+        setFeedback({
+          type: 'confused',
+          text: `${data.evaluation.feedback} 다시 답해볼까요?`,
+        })
       } else {
-        setTurnIndex((prev) => prev + 1)
-        setTimeout(() => {
-          setMessages((prev) => [...prev, { sender: 'customer', text: data.nextCustomerMessage }])
-        }, 600)
-        setCurrentCustomerMessage(data.nextCustomerMessage)
+        setFeedback({
+          type: data.evaluation.passed ? 'approve' : 'confused',
+          text: data.evaluation.feedback,
+        })
+
+        if (data.completed) {
+          // 기준을 다 채웠으면(또는 3턴을 다 썼으면) 남은 상황을 억지로 더 진행하지 않고 바로 끝낸다.
+          // 축하 배너를 보여주고, 사용자가 "결과 확인하기" 버튼을 눌러야 리포트 화면으로 넘어간다.
+          setAllCriteriaMet(data.allCriteriaMet)
+          setDurationMinutes(data.durationMinutes)
+          setCelebrating(true)
+        } else {
+          setTimeout(() => {
+            setMessages((prev) => [...prev, { sender: 'customer', text: data.nextCustomerMessage }])
+          }, 600)
+          setCurrentCustomerMessage(data.nextCustomerMessage)
+        }
       }
     } catch (err) {
       setFeedback({ type: 'confused', text: err.message })
@@ -108,8 +142,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
     }
   }
 
-  function handleEndTraining() {
-    onFinish?.(checklist, scenarioTitle, durationMinutes)
+  // 훈련 중단 — 언제든 누르면 지금까지의 체크리스트 상태 그대로 결과 화면으로 나간다("종료"가
+  // 아니라 도중에 그만두는 것이라 이름을 구분했다). 자동 완료 흐름과는 별개의 탈출구다.
+  function handleAbortTraining() {
+    onFinish?.(checklist, scenarioTitle, durationMinutes, heartsRemaining, maxHearts)
   }
 
   if (loading) {
@@ -138,8 +174,8 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   return (
     <div className="session-page">
       <AppNav role="staff" current="training" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout}>
-        <button type="button" className="end-btn" onClick={handleEndTraining}>
-          훈련 종료
+        <button type="button" className="end-btn" onClick={handleAbortTraining}>
+          훈련 중단
         </button>
       </AppNav>
 
@@ -150,10 +186,26 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
         </div>
 
         <div className="progress-row">
+          <span className="progress-label">기준 충족 {passedCount} / {checklist.length}</span>
           <div className="progress-track">
-            <div className="progress-fill" style={{ width: `${(turnIndex / MAX_TURNS) * 100}%` }}></div>
+            <div
+              className="progress-fill"
+              style={{ width: `${checklist.length ? (passedCount / checklist.length) * 100 : 0}%` }}
+            ></div>
           </div>
-          <span className="progress-label">{turnIndex + 1} / {MAX_TURNS} 상황</span>
+        </div>
+
+        <div className="hearts-block">
+          <div className="hearts-row" aria-label={`남은 하트 ${heartsRemaining} / ${maxHearts}`}>
+            {Array.from({ length: maxHearts }, (_, i) => (
+              <span key={i} className={`heart ${i < heartsRemaining ? 'full' : 'empty'}`}>
+                {i < heartsRemaining ? '♥' : '♡'}
+              </span>
+            ))}
+          </div>
+          <p className="hearts-hint">
+            기준을 하나도 못 채운 답변에서만 하트가 줄어요. 하트가 다 떨어지면 훈련이 바로 끝나요.
+          </p>
         </div>
 
         <div className="session-grid">
@@ -182,8 +234,29 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
               </div>
             )}
 
-            {completed ? (
-              <p className="session-complete-note">훈련이 끝났어요! "훈련 종료"를 눌러 결과를 확인하세요.</p>
+            {celebrating ? (
+              <div className="session-celebrate">
+                <img
+                  src={heartsExhausted ? mascotConfused : mascotApprove}
+                  alt="완료"
+                  className="celebrate-mascot"
+                />
+                <p className="celebrate-title">
+                  {heartsExhausted
+                    ? '하트를 모두 써서 훈련이 끝났어요'
+                    : allCriteriaMet
+                      ? '모든 기준을 완료했어요!'
+                      : '훈련이 끝났어요!'}
+                </p>
+                <p className="celebrate-sub">아래 버튼을 눌러 결과를 확인하세요.</p>
+                <button
+                  type="button"
+                  className="btn-primary celebrate-cta"
+                  onClick={() => onFinish?.(checklist, scenarioTitle, durationMinutes, heartsRemaining, maxHearts)}
+                >
+                  결과 화면으로 넘어가기
+                </button>
+              </div>
             ) : (
               <form className="input-bar" onSubmit={handleSubmit}>
                 <input
