@@ -36,6 +36,7 @@ model User {
   store                   Store?                   @relation(fields: [storeId], references: [id], onDelete: SetNull)
   emailVerificationTokens EmailVerificationToken[]
   refreshTokens           RefreshToken[]
+  trainingSessions        TrainingSession[]
 
   @@map("users")
 }
@@ -127,12 +128,17 @@ model TrainingSession {
   storeId     String    @map("store_id") @db.Uuid
   scenarioId  String    @map("scenario_id") @db.Uuid
   staffLabel  String?   @map("staff_label") @db.VarChar(50)
-  status      String    @default("in_progress") @db.VarChar(20)
+  // 알바 계정을 실제로 식별하는 외래키. staffLabel(자유 텍스트)만으로는 동명이인을 구분 못 해서
+  // 기록이 섞이는 문제가 있었다 — nullable인 이유는 이 컬럼이 생기기 전 세션은 값이 없어서다.
+  // 그런 과거 row는 belongsToStaff()가 staffLabel 이름 비교로만 폴백해서 판별한다.
+  staffId     String?   @map("staff_id") @db.Uuid
+  status      String    @default("in_progress") @db.VarChar(20) // in_progress | completed | abandoned
   startedAt   DateTime  @default(now()) @map("started_at") @db.Timestamptz
   completedAt DateTime? @map("completed_at") @db.Timestamptz
 
   store        Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
   scenario     Scenario      @relation(fields: [scenarioId], references: [id])
+  staff        User?         @relation(fields: [staffId], references: [id], onDelete: SetNull)
   sessionTurns SessionTurn[]
 
   @@index([storeId])

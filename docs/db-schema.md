@@ -20,6 +20,7 @@ erDiagram
     SCENARIOS ||--o{ RUBRICS : has
     SCENARIOS ||--o{ TRAINING_SESSIONS : used_in
     TRAINING_SESSIONS ||--o{ SESSION_TURNS : has
+    USERS ||--o{ TRAINING_SESSIONS : trains_in
     USERS ||--o{ EMAIL_VERIFICATION_TOKENS : has
     USERS ||--o{ REFRESH_TOKENS : has
 ```
@@ -78,8 +79,12 @@ CREATE TABLE training_sessions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   store_id      UUID NOT NULL REFERENCES stores(id) ON DELETE CASCADE,
   scenario_id   UUID NOT NULL REFERENCES scenarios(id),
-  staff_label   VARCHAR(50),                  -- 로그인 없음 — 자유 입력 라벨(예: "지우")
-  status        VARCHAR(20) NOT NULL DEFAULT 'in_progress', -- in_progress | completed
+  staff_label   VARCHAR(50),                  -- 리포트 표시용 자유 입력 별칭(예: "지우") — 계정 식별용 아님
+  -- 실제 계정 식별용 외래키. nullable — 이 컬럼이 생기기 전 세션은 값이 없고, staff_label 문자열
+  -- 비교로만 폴백 판별한다(belongsToStaff, server/src/lib/staffMatch.js). staff_label만으로는
+  -- 동명이인을 구분 못 해 서로 다른 사람의 기록이 섞이는 문제가 있었다.
+  staff_id      UUID REFERENCES users(id) ON DELETE SET NULL,
+  status        VARCHAR(20) NOT NULL DEFAULT 'in_progress', -- in_progress | completed | abandoned
   started_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   completed_at  TIMESTAMPTZ
 );

@@ -4,6 +4,7 @@ import { requireAuth } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
 import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
+import { belongsToStaff } from '../lib/staffMatch.js'
 
 const router = Router()
 
@@ -48,6 +49,9 @@ router.post('/', requireAuth, async (req, res) => {
         storeId: req.user.storeId,
         scenarioId: scenario.id,
         ...(staffLabel !== undefined && { staffLabel }),
+        // 로그인한 알바 계정을 실제로 식별하는 값 — staffLabel(자유 텍스트)만으로는 동명이인을
+        // 구분 못 해 리포트 집계가 섞이는 문제가 있었다(server/src/lib/staffMatch.js).
+        ...(req.user.role === 'staff' && { staffId: req.user.id }),
       },
     })
 
@@ -216,6 +220,34 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to submit turn' })
+  }
+})
+
+// ============================================================
+// 훈련 중단 — POST /api/sessions/:id/abandon
+// "훈련 중단" 버튼(중간 이탈)에서 호출 — status를 abandoned로 정리해, 사장님 대시보드 집계에서
+// 이 세션이 계속 "진행중"으로 잘못 잡히지 않게 한다(server/src/lib/sessionLifecycle.js와 짝).
+// ============================================================
+router.post('/:id/abandon', requireAuth, async (req, res) => {
+  try {
+    const session = await prisma.trainingSession.findUnique({ where: { id: req.params.id } })
+    if (!session || session.storeId !== req.user.storeId || !belongsToStaff(session, req.user)) {
+      return res.status(404).json({ error: 'session not found' })
+    }
+
+    // 이미 완료됐거나 이미 중단 처리된 세션이면 그대로 성공 취급 — 중복 호출을 에러로 보지 않는다.
+    if (session.status !== 'in_progress') {
+      return res.json({ session })
+    }
+
+    const updated = await prisma.trainingSession.update({
+      where: { id: session.id },
+      data: { status: 'abandoned' },
+    })
+    return res.json({ session: updated })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to abandon session' })
   }
 })
 

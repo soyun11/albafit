@@ -13,6 +13,7 @@ erDiagram
     SCENARIOS ||--o{ RUBRICS : "루브릭"
     SCENARIOS ||--o{ TRAINING_SESSIONS : "이 시나리오로 진행됨"
     TRAINING_SESSIONS ||--o{ SESSION_TURNS : "턴 기록"
+    USERS ||--o{ TRAINING_SESSIONS : "알바 계정 식별"
     USERS ||--o{ EMAIL_VERIFICATION_TOKENS : "이메일 인증"
     USERS ||--o{ REFRESH_TOKENS : "로그인 유지"
 
@@ -84,8 +85,9 @@ erDiagram
         uuid id PK
         uuid store_id FK
         uuid scenario_id FK
-        varchar staff_label "리포트용 별칭"
-        varchar status "in_progress / completed"
+        varchar staff_label "리포트용 별칭, 계정 식별용 아님"
+        uuid staff_id FK "null이면 이 컬럼 생기기 전 세션(레거시)"
+        varchar status "in_progress / completed / abandoned"
         timestamptz started_at
         timestamptz completed_at
     }

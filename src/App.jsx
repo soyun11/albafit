@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import LandingPage from './components/LandingPage'
-import Home from './components/Home'
 import Login from './components/Login'
 import Signup from './components/Signup'
 import ChangePassword from './components/ChangePassword'
@@ -23,13 +22,7 @@ import {
   setAccessToken,
   setAuthExpiredHandler,
 } from './lib/api'
-
-// 로그인 직후/새로고침 복원 직후 어느 화면으로 보낼지 역할·매장 보유 여부로 결정.
-function landingScreenFor(user) {
-  if (!user) return 'login'
-  if (user.role === 'owner') return user.storeId ? 'dashboard' : 'industry'
-  return 'scenario'
-}
+import { isScreenAllowed, landingScreenFor } from './lib/screenAccess'
 
 // 라우터 없는 SPA라 인증 메일 링크(/verify-email?token=...)로 들어왔는지는 모듈이 로드되는 시점에
 // 딱 한 번만 URL을 확인해서 판단한다(컴포넌트 안에서 하면 StrictMode가 두 번 실행시켜 주소창을
@@ -61,12 +54,18 @@ function App() {
   const [resetRawText, setResetRawText] = useState('')
   const [resetItems, setResetItems] = useState(null)
 
+  // screen이 지금 로그인 상태(user)로 들어갈 수 없는 화면이면(역할이 안 맞거나 로그인이 안 됨),
+  // 실제로 렌더링할 화면은 그 사용자의 홈 화면으로 대체한다 — screen state 자체는 안 건드리고
+  // 렌더링 직전에만 바꿔치기하므로, 어떤 경로로 setScreen이 호출되든(AppNav든, 나중에 추가될
+  // 다른 진입점이든) 이 한 곳만 지나면 잘못된 화면이 걸러진다.
+  const effectiveScreen = isScreenAllowed(screen, user) ? screen : landingScreenFor(user)
+
   // 라우터 없는 SPA라 화면(screen)이 바뀌어도 브라우저 스크롤 위치는 그대로 남는다 — 이전 화면을
   // 스크롤해서 내려간 상태로 nav를 눌러 넘어가면, 새 화면의 상단바가 뷰포트 밖으로 밀려 안 보이는
   // 문제가 있어서 화면 전환마다 맨 위로 되돌린다.
   useEffect(() => {
     window.scrollTo(0, 0)
-  }, [screen])
+  }, [effectiveScreen])
 
   // 앱이 처음 뜰 때, 이전에 로그인해서 저장해둔 토큰이 있으면 그걸로 로그인 상태를 복원한다.
   // 액세스 토큰이 만료돼 있어도 apiFetch가 리프레시 토큰으로 조용히 재발급받아 이어준다.
@@ -251,20 +250,20 @@ function App() {
     setScreen(key)
   }
 
-  if (screen === 'verifyEmail') {
+  if (effectiveScreen === 'verifyEmail') {
     return <VerifyEmail onHome={goHome} token={initialVerifyEmailToken} />
   }
-  if (screen === 'login') {
+  if (effectiveScreen === 'login') {
     return <Login onHome={goHome} onSignup={() => setScreen('signup')} onLoginSuccess={handleLoginSuccess} />
   }
-  if (screen === 'signup') {
+  if (effectiveScreen === 'signup') {
     return <Signup onHome={goHome} onLogin={() => setScreen('login')} onSignupSuccess={handleSignupSuccess} />
   }
-  if (screen === 'changePassword') {
+  if (effectiveScreen === 'changePassword') {
     return <ChangePassword onHome={goHome} onBack={() => setScreen(landingScreenFor(user))} />
   }
 
-  if (screen === 'industry') {
+  if (effectiveScreen === 'industry') {
     return (
       <IndustrySelect
         onBack={resetMode ? handleManageRubrics : goHome}
@@ -278,7 +277,7 @@ function App() {
       />
     )
   }
-  if (screen === 'rules') {
+  if (effectiveScreen === 'rules') {
     return (
       <RulesInput
         onBack={() => setScreen('industry')}
@@ -299,7 +298,7 @@ function App() {
       />
     )
   }
-  if (screen === 'rubric') {
+  if (effectiveScreen === 'rubric') {
     return (
       <RubricApproval
         onHome={goHome}
@@ -313,7 +312,7 @@ function App() {
       />
     )
   }
-  if (screen === 'rubricManage') {
+  if (effectiveScreen === 'rubricManage') {
     return (
       <RubricApproval
         onBack={() => setScreen('dashboard')}
@@ -332,7 +331,7 @@ function App() {
       />
     )
   }
-  if (screen === 'invite') {
+  if (effectiveScreen === 'invite') {
     return (
       <StaffInvite
         onNavigate={handleNavigate}
@@ -341,7 +340,7 @@ function App() {
       />
     )
   }
-  if (screen === 'reports') {
+  if (effectiveScreen === 'reports') {
     return (
       <ReportList
         onNavigate={handleNavigate}
@@ -351,7 +350,7 @@ function App() {
       />
     )
   }
-  if (screen === 'scenario') {
+  if (effectiveScreen === 'scenario') {
     return (
       <ScenarioSelect
         onNext={handleScenarioNext}
@@ -361,7 +360,7 @@ function App() {
       />
     )
   }
-  if (screen === 'training') {
+  if (effectiveScreen === 'training') {
     return (
       <TrainingSession
         onNavigate={handleNavigate}
@@ -373,7 +372,7 @@ function App() {
       />
     )
   }
-  if (screen === 'feedback') {
+  if (effectiveScreen === 'feedback') {
     return (
       <FeedbackReport
         onHome={goHome}
@@ -388,7 +387,7 @@ function App() {
       />
     )
   }
-  if (screen === 'dashboard') {
+  if (effectiveScreen === 'dashboard') {
     return (
       <OwnerDashboard
         onNavigate={handleNavigate}
@@ -399,10 +398,7 @@ function App() {
     )
   }
 
-  if (screen === 'menu') {
-    return <Home onNavigate={setScreen} onBack={goHome} />
-  }
-  if (screen === 'guestTry') {
+  if (effectiveScreen === 'guestTry') {
     return <GuestTry onNavigate={handleNavigate} />
   }
 
@@ -410,7 +406,6 @@ function App() {
     <LandingPage
       onStart={handleStart}
       onTry={() => setScreen('guestTry')}
-      onMenu={() => setScreen('menu')}
       onLogin={() => setScreen('login')}
       onSignup={() => setScreen('signup')}
       onLogout={handleLogout}
