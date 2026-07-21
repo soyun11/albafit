@@ -4,6 +4,7 @@ import prisma from '../lib/prisma.js'
 import { generateLinkKey } from '../lib/linkKey.js'
 import { generateRubric } from '../lib/rubric.js'
 import { proposeScenarios } from '../lib/scenarioProposer.js'
+import { findReuseCandidateBatches, findBestReuseCandidate } from '../lib/rubricReuse.js'
 import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
@@ -209,63 +210,107 @@ router.post('/:linkKey/rules', requireAuth, requireRole('owner'), async (req, re
     // 과거 store_rules row들은 지우지 않고 그대로 남아있어(원문 보존 원칙) 나중에 감사/이력 확인엔 쓸 수 있다.
     const combinedRulesText = storeRule.rawText
 
-    // 4단계: 예전엔 업종별로 고정된 시나리오 3개(지연/품절/규칙위반)에 규칙을 억지로 끼워맞췄지만,
-    // 매장마다 규칙이 다르니 그 틀에 안 맞는 규칙(예: "테이크아웃 컵 리드 제공")은 훈련에 반영될 방법이
-    // 없었다. 대신 방금 저장한 규칙 원문을 보고 AI가 실전 훈련용 상황(시나리오)을 직접 제안하게 한다.
-    const proposedScenarios = await proposeScenarios({
-      rawRulesText: combinedRulesText,
-      industry: store.industry,
-    })
+    // 3-1단계: AI를 다시 부르기 전에, 재사용할 수 있는 배치가 있는지 먼저 확인한다(기능 강화①,
+    // docs/rubric-reuse.md). 같은 업종의 다른 매장이 제출한 배치 중 "배치 안 모든 시나리오가 승인된
+    // 루브릭을 가진" 것만 후보로 들어오고(findReuseCandidateBatches), 그중 이번 규칙 원문과 가장
+    // 유사한 것 하나를 고른다(findBestReuseCandidate). 매칭되면 아래 4~5단계(AI 호출)를 완전히
+    // 건너뛴다 — 이게 이 기능의 핵심(Gemini 호출 자체를 줄임).
+    const reuseCandidates = await findReuseCandidateBatches({ industry: store.industry, excludeStoreId: store.id })
+    const reuseMatch = findBestReuseCandidate(reuseCandidates, combinedRulesText)
 
-    // 5단계: 제안된 상황마다 시나리오+루브릭을 항상 새로 만든다 — 기존처럼 같은 타입의 시나리오를
-    // 재사용하지 않는다. "이번 제출로 만든 배치"와 "예전 배치"를 storeRuleId로 구분해야, 재설정을
-    // 여러 번 해도 시나리오가 뒤섞이지 않고 "최신 배치"만 화면에 노출할 수 있다(설계 문서 3절).
-    //
-    // Promise.all(배열) — 배열 안의 여러 비동기 작업을 "동시에 전부 시작"시켜놓고, 그 작업들이 "다 끝날 때까지"만 기다림.
-    // 제안된 상황들은 서로 결과를 참조하지 않는 독립적인 작업이라 병렬로 돌려도 안전함(rubric.js 호출이 시나리오당 20초 가까이 걸림).
-    const rubrics = await Promise.all(
-      proposedScenarios.map(async (proposed, i) => {
-        // 5-1. 시나리오는 항상 새로 만든다. type엔 조회 키로서의 의미가 없어져서(4절 참고, 이제 조회는
-        // scenario.id로 함) 그냥 순번만 채운다. persona에 AI가 제안한 situation/opening을 실제로 채워 쓴다
-        // — 원래 "나중에 채울 자리"로 비어있던 컬럼이라 새 컬럼 추가 없이 이 자리를 채우는 것.
-        const scenario = await prisma.scenario.create({
-          data: {
-            storeId: store.id,
-            storeRuleId: storeRule.id,
-            type: `scenario-${i + 1}`,
-            title: proposed.title,
-            persona: { situation: proposed.situation, opening: proposed.opening },
-            initialState: {},
-          },
-        })
+    let rubricsWithScenario
+    if (reuseMatch) {
+      // 재사용 경로 — 매칭된 배치의 시나리오·루브릭을 그대로 복제한다. approvedAt은 여전히 null로
+      // 시작한다(docs/rubric-reuse.md 결정) — 원본이 승인됐다고 복제본까지 자동 승인되지 않는다.
+      rubricsWithScenario = await Promise.all(
+        reuseMatch.scenarios.map(async (source, i) => {
+          const scenario = await prisma.scenario.create({
+            data: {
+              storeId: store.id,
+              storeRuleId: storeRule.id,
+              type: `scenario-${i + 1}`,
+              title: source.title,
+              persona: source.persona,
+              initialState: source.initialState,
+            },
+          })
 
-        // 5-2. 실제 LLM 호출 — server/src/lib/rubric.js의 generateRubric 함수는 그대로 재사용.
-        const criteria = await generateRubric({
-          scenarioType: scenario.type,
-          scenarioTitle: proposed.title,
-          situation: proposed.situation,
-          rawRulesText: combinedRulesText,
-        })
+          const rubric = await prisma.rubric.create({
+            data: {
+              scenarioId: scenario.id,
+              criteria: source.criteria,
+              version: 1,
+              approvedAt: null,
+            },
+          })
 
-        // 5-3. 매번 새 Scenario라서(기존처럼 같은 시나리오를 재사용하지 않음) 버전 조회·bump 로직이
-        // 필요 없어졌다 — 항상 1. approvedAt: null은 여전히 "AI가 막 만든 승인 전 초안" 상태를 의미.
-        return prisma.rubric.create({
-          data: {
-            scenarioId: scenario.id,
-            criteria,
-            version: 1,
-            approvedAt: null,
-          },
+          return {
+            ...rubric,
+            scenarioTitle: source.title,
+            situation: source.persona?.situation,
+            opening: source.persona?.opening,
+          }
         })
+      )
+    } else {
+      // 4단계: 예전엔 업종별로 고정된 시나리오 3개(지연/품절/규칙위반)에 규칙을 억지로 끼워맞췄지만,
+      // 매장마다 규칙이 다르니 그 틀에 안 맞는 규칙(예: "테이크아웃 컵 리드 제공")은 훈련에 반영될 방법이
+      // 없었다. 대신 방금 저장한 규칙 원문을 보고 AI가 실전 훈련용 상황(시나리오)을 직접 제안하게 한다.
+      const proposedScenarios = await proposeScenarios({
+        rawRulesText: combinedRulesText,
+        industry: store.industry,
       })
-    )
-    // 프론트가 탭으로 구분해 보여줄 수 있게, 루브릭마다 시나리오 메타(제목·상황·오프닝)를 같이 붙여준다.
-    const rubricsWithScenario = rubrics.map((rubric, i) => ({
-      ...rubric,
-      scenarioTitle: proposedScenarios[i].title,
-      situation: proposedScenarios[i].situation,
-      opening: proposedScenarios[i].opening,
-    }))
+
+      // 5단계: 제안된 상황마다 시나리오+루브릭을 항상 새로 만든다 — 기존처럼 같은 타입의 시나리오를
+      // 재사용하지 않는다. "이번 제출로 만든 배치"와 "예전 배치"를 storeRuleId로 구분해야, 재설정을
+      // 여러 번 해도 시나리오가 뒤섞이지 않고 "최신 배치"만 화면에 노출할 수 있다(설계 문서 3절).
+      //
+      // Promise.all(배열) — 배열 안의 여러 비동기 작업을 "동시에 전부 시작"시켜놓고, 그 작업들이 "다 끝날 때까지"만 기다림.
+      // 제안된 상황들은 서로 결과를 참조하지 않는 독립적인 작업이라 병렬로 돌려도 안전함(rubric.js 호출이 시나리오당 20초 가까이 걸림).
+      const rubrics = await Promise.all(
+        proposedScenarios.map(async (proposed, i) => {
+          // 5-1. 시나리오는 항상 새로 만든다. type엔 조회 키로서의 의미가 없어져서(4절 참고, 이제 조회는
+          // scenario.id로 함) 그냥 순번만 채운다. persona에 AI가 제안한 situation/opening을 실제로 채워 쓴다
+          // — 원래 "나중에 채울 자리"로 비어있던 컬럼이라 새 컬럼 추가 없이 이 자리를 채우는 것.
+          const scenario = await prisma.scenario.create({
+            data: {
+              storeId: store.id,
+              storeRuleId: storeRule.id,
+              type: `scenario-${i + 1}`,
+              title: proposed.title,
+              persona: { situation: proposed.situation, opening: proposed.opening },
+              initialState: {},
+            },
+          })
+
+          // 5-2. 실제 LLM 호출 — server/src/lib/rubric.js의 generateRubric 함수는 그대로 재사용.
+          const criteria = await generateRubric({
+            scenarioType: scenario.type,
+            scenarioTitle: proposed.title,
+            situation: proposed.situation,
+            rawRulesText: combinedRulesText,
+          })
+
+          // 5-3. 매번 새 Scenario라서(기존처럼 같은 시나리오를 재사용하지 않음) 버전 조회·bump 로직이
+          // 필요 없어졌다 — 항상 1. approvedAt: null은 여전히 "AI가 막 만든 승인 전 초안" 상태를 의미.
+          return prisma.rubric.create({
+            data: {
+              scenarioId: scenario.id,
+              criteria,
+              version: 1,
+              approvedAt: null,
+            },
+          })
+        })
+      )
+      // 프론트가 탭으로 구분해 보여줄 수 있게, 루브릭마다 시나리오 메타(제목·상황·오프닝)를 같이 붙여준다.
+      rubricsWithScenario = rubrics.map((rubric, i) => ({
+        ...rubric,
+        scenarioTitle: proposedScenarios[i].title,
+        situation: proposedScenarios[i].situation,
+        opening: proposedScenarios[i].opening,
+      }))
+    }
 
     // 저장한 규칙 원문 + AI가 새로 제안한 시나리오 개수만큼의 루브릭을 한 번에 응답으로 돌려줌
     return res.status(201).json({ storeRule, rubrics: rubricsWithScenario })
