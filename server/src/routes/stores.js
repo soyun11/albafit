@@ -9,6 +9,8 @@ import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
+import { belongsToStaff } from '../lib/staffMatch.js'
+import { sessionsCountingAsCurrent } from '../lib/sessionLifecycle.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -455,10 +457,12 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
     const currentScenarioIds = new Set(scenarios.map((s) => s.id))
 
     // 이 매장 전체에서 "어떤 알바가 어떤 기준을 가장 자주 놓쳤는지" 모아서 코치 팁 하나를 뽑는다.
-    const missByStaff = new Map() // staffLabel -> Map(criterionItem -> count)
+    // 키를 user.name이 아니라 user.id로 쓴다 — 동명이인이면 이름으로 묶을 때 서로 다른 사람의
+    // 집계가 섞인다(belongsToStaff 도입과 같은 이유).
+    const missByStaff = new Map() // userId -> { name, items: Map(criterionItem -> count) }
 
     const staff = staffUsers.map((user) => {
-      const mySessions = sessions.filter((s) => s.staffLabel === user.name)
+      const mySessions = sessions.filter((s) => belongsToStaff(s, user))
       const completed = mySessions
         .filter((s) => s.status === 'completed')
         .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
@@ -470,8 +474,8 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
         for (const turn of pickFinalAttempts(session.sessionTurns)) {
           for (const item of turn.evaluation?.metItems ?? []) {
             if (item.met) continue
-            if (!missByStaff.has(user.name)) missByStaff.set(user.name, new Map())
-            const itemMap = missByStaff.get(user.name)
+            if (!missByStaff.has(user.id)) missByStaff.set(user.id, { name: user.name, items: new Map() })
+            const itemMap = missByStaff.get(user.id).items
             itemMap.set(item.item, (itemMap.get(item.item) ?? 0) + 1)
           }
         }
@@ -489,8 +493,13 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
         }
       }
 
+      // "지금 pending/active/done 판단에 반영해야 하는" 세션만 남긴다 — abandoned(훈련 중단)나
+      // 오래(STALE_IN_PROGRESS_MINUTES 이상) 방치된 in_progress 세션은 없는 셈 친다. 안 그러면
+      // 완료 이력이 하나도 없어도 예전에 중단한 세션 하나 때문에 active로 잘못 잡힌다.
+      const relevantSessions = sessionsCountingAsCurrent(mySessions)
+
       const status =
-        mySessions.length === 0
+        relevantSessions.length === 0
           ? 'pending'
           : totalScenarioTypes > 0 && completedTypes.size >= totalScenarioTypes
             ? 'done'
@@ -514,7 +523,7 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
 
     let coachTip = null
     let maxMiss = 0
-    for (const [staffName, itemMap] of missByStaff) {
+    for (const { name: staffName, items: itemMap } of missByStaff.values()) {
       for (const [item, count] of itemMap) {
         if (count > maxMiss) {
           maxMiss = count
@@ -555,7 +564,13 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
     }
 
     const session = await prisma.trainingSession.findFirst({
-      where: { storeId: req.user.storeId, staffLabel: staffUser.name, status: 'completed' },
+      where: {
+        storeId: req.user.storeId,
+        status: 'completed',
+        // staffId가 있는(이 컬럼 생긴 이후) 세션은 그걸로, 없는 레거시 세션은 staffLabel 이름
+        // 비교로만 폴백 판별한다 — belongsToStaff와 같은 규칙을 Prisma where 조건으로 표현한 것.
+        OR: [{ staffId: staffUser.id }, { AND: [{ staffId: null }, { staffLabel: staffUser.name }] }],
+      },
       orderBy: { completedAt: 'desc' },
       include: { scenario: true, sessionTurns: { orderBy: [{ turnNumber: 'asc' }, { retryCount: 'asc' }] } },
     })

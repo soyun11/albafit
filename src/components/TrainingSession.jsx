@@ -144,7 +144,12 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
 
   // 훈련 중단 — 언제든 누르면 지금까지의 체크리스트 상태 그대로 결과 화면으로 나간다("종료"가
   // 아니라 도중에 그만두는 것이라 이름을 구분했다). 자동 완료 흐름과는 별개의 탈출구다.
+  // 서버에도 이 세션을 abandoned로 정리해달라고 알려준다 — 안 그러면 사장님 대시보드 집계에서
+  // 이 세션이 계속 "진행중"으로 잘못 잡힌다. 실패해도 알바가 화면을 나가는 흐름 자체는 막지 않는다.
   function handleAbortTraining() {
+    if (sessionId) {
+      apiFetch(`/api/sessions/${sessionId}/abandon`, { method: 'POST' }).catch(() => {})
+    }
     onFinish?.(checklist, scenarioTitle, durationMinutes, heartsRemaining, maxHearts)
   }
 
