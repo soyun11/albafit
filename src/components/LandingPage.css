@@ -52,10 +52,6 @@
   cursor: pointer;
 }.landing-page .nav-menu-link:hover {
   color: var(--color-primary);
-}.landing-page .nav-menu-link.dev-link {
-  font-weight: 400;
-  text-decoration: underline;
-  opacity: 0.6;
 }.landing-page .nav-auth {
   display: flex;
   align-items: center;

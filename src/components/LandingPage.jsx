@@ -9,7 +9,7 @@ function scrollToSection(id) {
   document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 }
 
-function LandingPage({ onStart, onTry, onMenu, onLogin, onSignup, onLogout, user }) {
+function LandingPage({ onStart, onTry, onLogin, onSignup, onLogout, user }) {
   return (
     <div className="landing-page">
       <nav className="landing-nav">
@@ -26,9 +26,6 @@ function LandingPage({ onStart, onTry, onMenu, onLogin, onSignup, onLogout, user
           </button>
           <button type="button" className="nav-menu-link" onClick={() => scrollToSection('section-effect')}>
             효과
-          </button>
-          <button type="button" className="nav-menu-link dev-link" onClick={onMenu}>
-            전체 화면 목록
           </button>
         </div>
         <div className="nav-auth">
