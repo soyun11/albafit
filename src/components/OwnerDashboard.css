@@ -16,15 +16,6 @@
   border-radius: var(--radius-card);
 }.dashboard-page .mono {
   font-family: var(--font-family-mono);
-}.dashboard-page .btn-primary-sm {
-  background: var(--color-primary);
-  color: var(--color-text-on-primary);
-  font-weight: 600;
-  font-size: 13px;
-  padding: 9px 16px;
-  border-radius: var(--radius-chip);
-  border: none;
-  cursor: pointer;
 }.dashboard-page .dashboard-wrap {
   max-width: 1040px;
   margin: 0 auto;

@@ -34,11 +34,7 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, user }) {
 
   return (
     <div className="dashboard-page">
-      <AppNav role="owner" current="dashboard" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout}>
-        <button type="button" className="btn-primary-sm" onClick={() => onNavigate('invite')}>
-          + 알바 초대
-        </button>
-      </AppNav>
+      <AppNav role="owner" current="dashboard" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
 
       <div className="dashboard-wrap">
         <EmailVerifyBanner user={user} />
