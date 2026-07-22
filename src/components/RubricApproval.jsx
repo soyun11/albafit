@@ -132,9 +132,14 @@ function RubricApproval({
               : `방금 정한 매장 규정을 보고 AI가 실전 상황 ${rubrics.length}개를 제안하고, 시나리오별 채점 기준을 정리했어요. 필요하면 직접 수정하고, 시나리오별로 각각 승인해주세요.`}
           </p>
           {onDone && (
-            <button type="button" className="btn-primary-sm reset-rules-btn" onClick={onResetRules}>
-              기준 재설정
-            </button>
+            <div className="rubric-head-actions">
+              <button type="button" className="link-inline" onClick={() => onNavigate('correctionHistory')}>
+                정정 이력 모아보기 →
+              </button>
+              <button type="button" className="btn-primary-sm reset-rules-btn" onClick={onResetRules}>
+                기준 재설정
+              </button>
+            </div>
           )}
         </div>
 

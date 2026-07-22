@@ -78,25 +78,11 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
         </div>
 
         <div className="panel glass">
-          <div className="staff-panel-head">
-            <span className="panel-title">알바 목록</span>
-            <div className="staff-panel-actions">
-              <button type="button" className="link-inline" onClick={() => onNavigate('correctionHistory')}>
-                정정 이력 모아보기 →
-              </button>
-              <button type="button" className="btn-primary-sm" onClick={() => onNavigate('invite')}>
-                + 새 알바 초대
-              </button>
-            </div>
-          </div>
+          <span className="panel-title">알바 목록</span>
 
           {error && <p className="dashboard-error">{error}</p>}
 
-          {staff && staff.length === 0 && (
-            <p className="dashboard-empty">아직 초대한 알바가 없어요. "+ 새 알바 초대"로 계정을 만들어주세요.</p>
-          )}
-
-          {staff && staff.length > 0 && (
+          {staff && (
             <table className="staff-table">
               <thead>
                 <tr>
@@ -131,6 +117,11 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
                     </td>
                   </tr>
                 ))}
+                {/* 알바 초대는 별도 버튼이 아니라 목록의 자연스러운 다음 행으로 — 연한 색으로
+                    구분해 "언제든 추가할 수 있는 자리"라는 느낌을 준다. */}
+                <tr className="add-staff-row" onClick={() => onNavigate('invite')}>
+                  <td colSpan={4}>+ 새 알바 초대</td>
+                </tr>
               </tbody>
             </table>
           )}

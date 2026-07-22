@@ -19,7 +19,7 @@ function CorrectionHistory({ onNavigate, onChangePassword, onLogout }) {
 
   return (
     <div className="report-list-page">
-      <AppNav role="owner" current="dashboard" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
+      <AppNav role="owner" current="rubricManage" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
 
       <div className="report-list-wrap">
         <h1>정정 이력 모아보기</h1>
