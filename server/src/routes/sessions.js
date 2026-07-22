@@ -3,6 +3,7 @@ import prisma from '../lib/prisma.js'
 import { requireAuth } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
+import { runCrossCheck } from '../lib/evaluatorCrossCheck.js'
 import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 
@@ -145,6 +146,17 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
         passed: evaluation.passed,
       },
     })
+
+    // 기능강화② 평가 결과 교차검증(docs/evaluation-cross-check.md) — 응답을 기다리게 하면 안
+    // 되므로 await 없이 fire-and-forget으로 실행하고 실패는 여기서 격리한다. 참고 로그일 뿐
+    // 턴 판정(passed/재입력/하트)에는 전혀 관여하지 않는다.
+    runCrossCheck({
+      turnId: turn.id,
+      criteria: rubric.criteria,
+      customerMessage: effectiveCustomerMessage,
+      staffAnswer,
+      geminiMetItems: evaluation.metItems,
+    }).catch((err) => console.error('[cross-check] failed', err))
 
     // 하트(재입력 예산) — 세션 전체를 통틀어 "새로 충족시킨 기준이 하나도 없었던" 시도 횟수만큼
     // 깎인다. 방금 만든 turn까지 포함해서 계산해야 이번 시도가 하트에 반영된다.
