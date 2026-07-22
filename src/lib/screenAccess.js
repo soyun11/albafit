@@ -11,6 +11,10 @@ const AUTH_ONLY_SCREENS = new Set(['changePassword', 'feedback'])
 // AppNav는 역할별로 링크 자체를 안 보여주지만, 그건 "권한 없는 화면으로 가는 버튼을 안 보여줄
 // 뿐"이라 실제로 그 화면을 렌더링하기 직전에 한 번 더 걸러야 다른 진입 경로가 생겨도 안전하다.
 export function isScreenAllowed(screen, user) {
+  // 로그인 상태면 마케팅 랜딩 페이지는 유효한 화면이 아니다 — landingScreenFor(user)로 대체된다
+  // (docs/home-navigation-fix.md). goHome()/새로고침 복원 effect가 여전히 'landing'을 가리켜도
+  // 여기서 한 번에 걸러지므로 그 호출부들은 손대지 않는다.
+  if (screen === 'landing') return !user
   if (OWNER_SCREENS.has(screen)) return user?.role === 'owner'
   if (STAFF_SCREENS.has(screen)) return user?.role === 'staff'
   if (AUTH_ONLY_SCREENS.has(screen)) return Boolean(user)

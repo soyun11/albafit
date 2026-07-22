@@ -40,11 +40,15 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('feedback', null)).toBe(false)
   })
 
-  it('완전 공용 화면(landing, login 등)은 로그인 여부·역할과 무관하게 항상 허용한다', () => {
-    expect(isScreenAllowed('landing', null)).toBe(true)
-    expect(isScreenAllowed('landing', owner)).toBe(true)
+  it('완전 공용 화면(login, guestTry 등)은 로그인 여부·역할과 무관하게 항상 허용한다', () => {
     expect(isScreenAllowed('login', null)).toBe(true)
     expect(isScreenAllowed('guestTry', staff)).toBe(true)
+  })
+
+  it('마케팅 랜딩(landing)은 비로그인일 때만 허용한다 — 로그인 상태면 각자의 진짜 홈으로 대체돼야 한다', () => {
+    expect(isScreenAllowed('landing', null)).toBe(true)
+    expect(isScreenAllowed('landing', owner)).toBe(false)
+    expect(isScreenAllowed('landing', staff)).toBe(false)
   })
 })
 
