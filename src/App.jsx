@@ -14,7 +14,6 @@ import FeedbackReport from './components/FeedbackReport'
 import TurnCalibrationReview from './components/TurnCalibrationReview'
 import CorrectionHistory from './components/CorrectionHistory'
 import OwnerDashboard from './components/OwnerDashboard'
-import ReportList from './components/ReportList'
 import VerifyEmail from './components/VerifyEmail'
 import GuestTry from './components/GuestTry'
 import {
@@ -354,16 +353,6 @@ function App() {
       />
     )
   }
-  if (effectiveScreen === 'reports') {
-    return (
-      <ReportList
-        onNavigate={handleNavigate}
-        onChangePassword={() => setScreen('changePassword')}
-        onLogout={handleLogout}
-        onViewReport={handleViewReport}
-      />
-    )
-  }
   if (effectiveScreen === 'scenario') {
     return (
       <ScenarioSelect
@@ -437,6 +426,7 @@ function App() {
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
+        onViewReport={handleViewReport}
         user={user}
       />
     )

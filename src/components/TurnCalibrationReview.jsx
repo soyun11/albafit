@@ -68,7 +68,7 @@ function TurnCalibrationReview({ sessionId, staffName, onBack, onNavigate, onCha
 
   return (
     <div className="calibration-page">
-      <AppNav role="owner" current="reports" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
+      <AppNav role="owner" current="dashboard" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
 
       <div className="calibration-wrap">
         <div className="calibration-head">

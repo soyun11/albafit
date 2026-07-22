@@ -14,7 +14,7 @@ const DEFAULT_HINT = '이 업종은 아직 준비된 예시가 없어요. 카페
 
 // 이 화면에서는 아직 매장이 없어서(다음 클릭 시 생성됨) 매장 있어야 의미 있는 링크는 눌러도
 // 갈 곳이 없다 — 회색으로 비활성화만 해서 "이런 메뉴들이 있다"는 건 보여준다.
-const NO_STORE_YET = ['dashboard', 'rubricManage', 'reports', 'invite']
+const NO_STORE_YET = ['dashboard', 'rubricManage']
 
 function IndustrySelect({ onBack, onNext, onNavigate, onChangePassword, onLogout, user, resetMode, onStepClick }) {
   // 재설정 흐름이면 이미 정해진 매장 업종으로 시작하고 바꿀 수 없게 한다 — 업종 변경은

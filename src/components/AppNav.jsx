@@ -1,10 +1,10 @@
 import './AppNav.css'
 
+// 알바 목록·초대는 전부 대시보드로 통합돼서(docs/dashboard-staff-consolidation.md) 별도 nav
+// 링크가 아니라 대시보드 화면 안에서 들어가는 하위 화면이다.
 const OWNER_LINKS = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'rubricManage', label: '기준 관리' },
-  { key: 'reports', label: '리포트' },
-  { key: 'invite', label: '알바 관리' },
 ]
 
 const STAFF_LINKS = [

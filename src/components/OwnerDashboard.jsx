@@ -15,21 +15,30 @@ const INDUSTRY_LABELS = {
   beauty: '💇 뷰티 · 헤어 기준 적용중',
 }
 
-function OwnerDashboard({ onNavigate, onChangePassword, onLogout, user }) {
+const STATUS_LABEL = {
+  done: '훈련 완료',
+  active: '훈련중',
+  pending: '응답 대기',
+}
+
+// docs/dashboard-staff-consolidation.md — 알바 목록(예전 "리포트")·초대(예전 "알바 관리")를
+// 전부 대시보드로 합쳤다. onViewReport는 App.jsx의 handleViewReport(개별 상세 리포트로 이동).
+function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, user }) {
   // 예전엔 이 통계·코치팁이 전부 하드코딩된 mock이었다 — /me/staff-report로 실제 훈련 기록을
   // 집계해서 채운다. 알바가 아직 없거나 아무도 훈련을 안 했으면 stats 값이 0/null로 자연스럽게 온다.
   const [stats, setStats] = useState(null)
   const [coachTip, setCoachTip] = useState(null)
+  const [staff, setStaff] = useState(null)
+  const [error, setError] = useState('')
 
   useEffect(() => {
     apiFetch('/api/stores/me/staff-report')
       .then((data) => {
         setStats(data.stats)
         setCoachTip(data.coachTip)
+        setStaff(data.staff)
       })
-      .catch(() => {
-        // 조회 실패해도 대시보드 자체는 보여준다 — 통계 카드만 빈 상태로 남는다.
-      })
+      .catch((err) => setError(err.message))
   }, [])
 
   return (
@@ -68,10 +77,64 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, user }) {
           </div>
         </div>
 
-        <button type="button" className="report-link-card glass" onClick={() => onNavigate('reports')}>
-          <span className="panel-title">알바 리포트 보기 →</span>
-          <span className="report-link-sub">누가 뭘 잘하고 있는지, 어디서 막히는지 한눈에 확인해요.</span>
-        </button>
+        <div className="panel glass">
+          <div className="staff-panel-head">
+            <span className="panel-title">알바 목록</span>
+            <div className="staff-panel-actions">
+              <button type="button" className="link-inline" onClick={() => onNavigate('correctionHistory')}>
+                정정 이력 모아보기 →
+              </button>
+              <button type="button" className="btn-primary-sm" onClick={() => onNavigate('invite')}>
+                + 새 알바 초대
+              </button>
+            </div>
+          </div>
+
+          {error && <p className="dashboard-error">{error}</p>}
+
+          {staff && staff.length === 0 && (
+            <p className="dashboard-empty">아직 초대한 알바가 없어요. "+ 새 알바 초대"로 계정을 만들어주세요.</p>
+          )}
+
+          {staff && staff.length > 0 && (
+            <table className="staff-table">
+              <thead>
+                <tr>
+                  <th>이름</th>
+                  <th>진행률</th>
+                  <th>최근 점수</th>
+                  <th>상태</th>
+                </tr>
+              </thead>
+              <tbody>
+                {staff.map((member) => (
+                  <tr
+                    key={member.id}
+                    className={member.status === 'pending' ? 'no-click' : ''}
+                    onClick={() => member.status !== 'pending' && onViewReport(member)}
+                  >
+                    <td>
+                      <div className="name-cell">
+                        <div className="avatar-initial">{member.name.slice(0, 2)}</div>
+                        {member.name}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="progress-mini">
+                        <span className="progress-mini-fill" style={{ width: `${member.progress}%` }} />
+                      </span>
+                      {member.done}
+                    </td>
+                    <td className="score-cell">{member.score}</td>
+                    <td>
+                      <span className={`status-chip ${member.status}`}>{STATUS_LABEL[member.status]}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
 
         {coachTip && (
           <div className="panel glass coach-tip">
