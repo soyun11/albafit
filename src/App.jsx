@@ -156,9 +156,16 @@ function App() {
     setScreen('rules')
   }
 
-  // 재설정 흐름의 STEP1 "다음" — 매장은 이미 있으니 새로 만들지 않고, 새로 적은 매뉴얼만 분리해서
-  // step2에 저장된 규칙과 함께 보여준다.
-  async function handleResetIndustryNext(_industryKey, text) {
+  // 재설정 흐름의 STEP1 "다음" — 매장은 이미 있으니 새로 만들지 않는다.
+  // replaceExisting은 IndustrySelect의 매뉴얼 입력칸을 사용자가 직접 "수정하기"로 고쳤을 때만 true —
+  // 그때는 이 칸 내용이 새 원문 전체를 대체하므로 예전 resetRawText/resetItems를 지워서, step2가
+  // 예전 저장 카드를 이 칸에서 새로 쪼갠 카드와 나란히 중복해서 보여주지 않게 한다. 안 건드렸으면
+  // (replaceExisting=false, text='') 예전 값 그대로 두고 아무 카드도 새로 안 만든다.
+  async function handleResetIndustryNext(_industryKey, text, replaceExisting) {
+    if (replaceExisting) {
+      setResetRawText('')
+      setResetItems(null)
+    }
     await splitAndSetManualRules(text)
     setScreen('rules')
   }
@@ -314,6 +321,7 @@ function App() {
         onLogout={handleLogout}
         resetMode={resetMode}
         user={user}
+        initialManualText={resetRawText}
       />
     )
   }
@@ -321,8 +329,15 @@ function App() {
     return (
       <RulesInput
         onBack={() => setScreen('industry')}
-        onNext={(newRubrics) => {
+        onNext={(newRubrics, saved) => {
           setRubrics(newRubrics)
+          // 방금 확정·저장한 내용을 반영해둔다 — 안 그러면 StepSidebar로 STEP1/2에 다시
+          // 돌아왔을 때 "지금 저장된 규칙" 참고 블록·SAVED 카드가 이번 제출 이전의 옛 값을
+          // 계속 보여준다.
+          if (saved) {
+            setResetRawText(saved.rawText)
+            setResetItems(saved.items)
+          }
           setScreen(resetMode ? 'rubricManage' : 'rubric')
         }}
         onStepClick={resetMode ? handleResetStepClick : undefined}

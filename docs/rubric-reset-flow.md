@@ -100,3 +100,41 @@ STEP1의 작은 라벨("eyebrow")이 항상 "매장업종선택 · 매뉴얼입�
 - **중요한 한계**: 이 컬럼이 생기기 *이전에* 저장된 카드는 원래 라벨 정보가 아예 없어서 여전히 SAVED로만 보인다 — 사용자에게도 명확히 안내함("과거 데이터는 소급 복원 불가능, 앞으로 것부터 적용").
 
 **검증**: 데모 계정 재설정 → STEP1에서 새 매뉴얼 입력·제출(이때부터 items 저장됨) → 대시보드 복귀 → **다시 재설정 재진입 → 방금 그 카드가 SAVED가 아니라 "매뉴얼 기반" 라벨 그대로 복원되는 것 확인**(핵심 검증 포인트, 통과) → 그 이전부터 있던 4개는 여전히 SAVED로 남아있는 것도 확인(하위호환, 의도된 동작). `npm run lint` 통과, 마이그레이션 정상 적용, 콘솔 에러 0건.
+
+## 다섯 번째 라운드 — STEP1에서 "기존 매뉴얼이 안 보인다"는 요청을 다시 받음, 이번엔 읽기전용 참고 블록으로 해결
+
+세 번째 라운드에서 "매뉴얼 입력칸은 새로 쓸 내용 전용, 저장된 규칙은 STEP2에서만 SAVED 카드로 보여준다"로 정리했었는데, 시간이 지나 사용자가 다시 "STEP1에서 기존 매뉴얼이 보이면 좋겠다"고 요청했다 — 세 번째 라운드의 결론을 미처 다시 찾아보지 않고 곧장 구현부터 들어간 게 문제의 시작이었다(`docs before code` 원칙을 건너뜀).
+
+**첫 시도(실패, 되돌림)**: STEP1의 매뉴얼 입력 textarea(`manualText`) 자체를 `resetRawText`(저장된 규칙 텍스트)로 프리필했다. 그런데 이 칸은 "다음"을 누르면 그대로 `/api/stores/manual-split`(Gemini)로 보내져 새 카드로 쪼개지는 입력칸이다 — 그 결과 STEP2에 원래 있던 SAVED 카드(`initialItems`/`parseRulesText`로 복원)와, 프리필된 텍스트를 AI가 다시 쪼갠 "매뉴얼 기반" 카드가 **내용이 겹치는 채로 같이** 뜨는 걸 브라우저로 직접 확인했다. 세 번째 라운드가 정확히 피하려던 문제(중복 누적)의 변종이었다.
+
+**수정(적용)**: 입력칸과 완전히 분리된 **읽기전용 블록**을 새로 추가했다 — `IndustrySelect.jsx`에 `resetMode && initialManualText`일 때만 보이는 `.manual-reference` `<div>`(입력 불가, `manualText` state와 무관, 제출 경로에도 안 실림)를 매뉴얼 입력 카드 위에 배치, 라벨 "지금 저장된 규칙 (참고용)". 이러면 "다음"을 눌러도 이 블록 내용은 AI 분리를 다시 안 탄다.
+
+- 부가 요청: textarea라 내용이 잘려 보인다는 지적 → 애초에 이 참고 블록은 textarea가 아니라 높이 제한 없는 `<div>`(`white-space: pre-wrap`, `word-break: break-word`)로 만들어서 전체 텍스트가 스크롤 없이 다 보이게 했다(`IndustrySelect.css`의 `.manual-reference`).
+- `App.jsx`가 이미 갖고 있던 `resetRawText`(기존 `handleResetRules`가 `GET /me/rules`로 불러온 값, STEP2 프리필에도 재사용되던 값)를 그대로 `initialManualText` prop으로 넘겨서 새 API·새 state 없이 끝났다.
+
+**검증**: 기준 관리 → 기준 재설정 → StepSidebar step1 클릭 → "지금 저장된 규칙 (참고용)" 블록에 전체 텍스트가 잘림 없이 표시되고, 그 아래 "새 매뉴얼 입력" 칸은 비어있는 것 확인 → 아무것도 안 고치고 "다음" → STEP2에 SAVED 카드가 정확히 1개(중복 없음)로 뜨는 것 확인(회귀 재현 및 수정 확인). `npm run lint` 통과, 콘솔 에러 0건. 실제 제출(`POST /:linkKey/rules`)까지는 안 갔으므로 DB 변경 없음.
+
+### 곧바로 발견된 버그 — 확정해도 참고 블록이 옛 값에 머묾
+
+실제 매뉴얼 텍스트(카페 매장 규정 10개 문장)를 STEP1에 입력 → STEP2에서 기존 "SAVED 규정 1" + 새 "매뉴얼 기반" 10개, 총 11개 카드로 정확히 합쳐진 것까지 확인 → "이 기준으로 확정하기"로 새 시나리오·루브릭 4개 생성까지 성공했는데, 사용자가 "지금 저장된 규칙에는 다른 게 뜨는데"라고 지적 — StepSidebar로 STEP1에 다시 가보면 참고 블록이 방금 확정한 11개가 아니라 그 이전(첫 "규정 1" 하나)을 그대로 보여주고 있었다.
+
+**원인**: `App.jsx`의 `resetRawText`/`resetItems`는 재설정 진입 시점(`handleResetRules`)에 한 번 불러온 뒤, `RulesInput`이 "확정하기"로 실제 저장에 성공해도 갱신되지 않았다 — `RulesInput.jsx`의 `handleConfirm`이 방금 계산한 `rawText`/`items`를 `onNext(data.rubrics)`로 넘길 때 빼놓고 안 넘기고 있었다.
+
+**수정**: `onNext(data.rubrics, { rawText, items })`로 확장, `App.jsx`의 `rules` 화면 `onNext` 콜백이 두 번째 인자를 받아 `setResetRawText`/`setResetItems`를 같이 갱신하도록 함. 새 API·재조회 없이 이미 계산돼 있던 값을 그대로 부모로 올리기만 하면 되는 수정이었다.
+
+**검증**: 실제 매뉴얼 제출 → 확정 → STEP3(새 시나리오 4개 생성 확인) → StepSidebar step1로 복귀 → "지금 저장된 규칙 (참고용)"이 방금 확정한 11개 규칙 전문을 정확히 보여주는 것 확인(수정 전엔 옛 1개만 보였던 것과 대비). `npm run lint` 통과, 콘솔 에러 0건.
+
+### 여섯 번째 라운드 — "참고용" 블록과 "새 매뉴얼 입력" 칸을 하나로 합치고, EDITABLE 토글로 직접 고칠 수 있게
+
+바로 이어서 사용자가 두 가지를 요청했다: (1) 이제 필요 없어진 "규정 1"(초기 온보딩 때 만든 낡은 통합 규칙) 카드를 지우고 싶다, (2) "지금 저장된 규칙 (참고용)" 읽기전용 블록과 "매장 매뉴얼 · 규정 입력" 편집 칸을 굳이 둘로 나누지 말고, 하나의 칸에 저장된 내용을 채워두고 STEP2 규칙 카드처럼 "EDITABLE · 수정하기"를 눌러야 편집되게 합쳐달라는 것.
+
+**결정**: STEP2의 규칙 카드가 이미 쓰고 있는 읽기/수정 토글 패턴(`RulesInput.jsx`의 `EDITABLE · 수정하기` → 클릭 시 textarea로 전환)을 STEP1의 매뉴얼 칸에도 그대로 적용해서 하나의 칸으로 합친다. 다만 다섯 번째 라운드에서 겪은 중복 버그를 다시 만들지 않도록, "안 건드리고 그냥 다음으로 넘어간 경우"와 "수정하기를 눌러 실제로 고친 경우"를 구분해서 서로 다르게 처리한다:
+- **안 건드림**(읽기전용 상태 그대로 "다음") → 빈 텍스트를 넘겨서 AI 분리 파이프라인을 안 태움, `resetRawText`/`resetItems`(예전 저장값)는 그대로 유지 → STEP2에 예전 카드만 그대로 복원, 중복 없음.
+- **수정함**("EDITABLE · 수정하기"를 눌러 내용을 고치거나 지우고 "다음") → 이 칸의 전체 내용을 새 원문으로 삼아 AI로 다시 쪼갠다. 이때 `resetRawText`/`resetItems`를 먼저 비워서, STEP2가 예전 저장 카드를 이 칸에서 새로 쪼갠 카드와 나란히 중복해서 보여주지 않게 한다(예전 카드는 이 칸 안에 이미 텍스트로 다 들어있으므로 완전 대체해도 안전).
+
+이 설계 덕분에 "규정 1 삭제"도 별도 기능 없이 자연스럽게 해결된다 — 이 칸을 "수정하기"로 열어서 "규정 1: ..." 문단만 지우고 "다음"을 누르면, 그 문장이 빠진 채로 전체가 다시 쪼개져 STEP2에 반영된다.
+
+- `IndustrySelect.jsx` — `manualEdited` state 추가. `showManualReference = resetMode && initialManualText && !manualEdited`일 때만 읽기전용 `.manual-reference` 블록 + `EDITABLE · 수정하기` 링크(`RulesInput.jsx`와 동일한 `.edit-link` 클래스, `IndustrySelect.css`에 동일 스타일 추가)를 보여주고, 아니면 기존처럼 `<textarea>`. `handleNext`가 `showManualReference` 여부에 따라 `onNext(industry, '', false)` 또는 `onNext(industry, manualText, resetMode)`로 분기.
+- `App.jsx`의 `handleResetIndustryNext(industryKey, text, replaceExisting)` — `replaceExisting`이 true일 때만 `resetRawText`/`resetItems`를 비운 뒤 `splitAndSetManualRules(text)` 호출.
+
+**검증**: 데모 계정 STEP1 진입 → 하나의 칸에 "규정 1"까지 포함한 11개 항목 전문이 읽기전용으로 잘림 없이 보이고 그 아래 "EDITABLE · 수정하기"만 있는 것 확인(별도 "새 매뉴얼 입력" 칸 없음) → 수정하기 클릭 → textarea로 전환, 전체 내용에서 "규정 1" 문단만 빼고 나머지 10개를 그대로 다시 입력 → "다음" → STEP2에 정확히 "10개 중 10개 사용", "규정 1" 카드 없음, 중복 없음 확인 → "이 기준으로 확정하기" → 새 시나리오 4개(디카페인/반려동물/단체예약/마감안내) 생성 확인. `npm run lint` 통과, 콘솔 에러 0건.
