@@ -119,4 +119,21 @@
 }.report-list-page .score-cell {
   font-weight: 700;
   color: var(--color-text-heading);
+}.report-list-page .sort-toggle {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 16px;
+}.report-list-page .sort-toggle button {
+  border: 1px solid var(--color-surface-glass-border);
+  background: var(--color-surface-glass);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}.report-list-page .sort-toggle button.active {
+  background: var(--gradient-primary);
+  color: #fff;
+  border-color: transparent;
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickFinalAttempts, buildConversationHistory, computeHearts } from './sessionTurns.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload, buildSessionSummary } from './sessionTurns.js'
 
 // describe는 테스트를 묶는 단위. 보통 함수 하나당 하나씩.
 describe('pickFinalAttempts', ()=>{
@@ -62,6 +62,71 @@ describe('computeHearts', ()=>{
 
         expect(result.maxHearts).toBe(4)
         expect(result.heartsRemaining).toBe(3)
-        
+
     })
+})
+
+describe('buildSessionReportPayload', () => {
+  it('리포트 화면이 그리는 데이터(체크리스트·점수·소요시간)를 만든다', () => {
+    const session = {
+      id: 's1',
+      startedAt: new Date('2026-07-22T00:00:00.000Z'),
+      completedAt: new Date('2026-07-22T00:05:00.000Z'),
+      scenario: { title: '품절 메뉴 대처' },
+      sessionTurns: [
+        { turnNumber: 1, retryCount: 0, evaluation: { metItems: [{ item: 'ETA 안내', met: true }] } },
+        { turnNumber: 2, retryCount: 0, evaluation: { metItems: [{ item: '사과 표현', met: false }] } },
+      ],
+    }
+
+    const result = buildSessionReportPayload({ session, staffName: '검증알바', industry: 'cafe' })
+
+    expect(result.sessionId).toBe('s1')
+    expect(result.staffName).toBe('검증알바')
+    expect(result.industry).toBe('cafe')
+    expect(result.scenarioTitle).toBe('품절 메뉴 대처')
+    expect(result.durationMinutes).toBe(5)
+    expect(result.checklist).toEqual([
+      { label: 'ETA 안내', status: 'ok' },
+      { label: '사과 표현', status: 'wait' },
+    ])
+  })
+
+  it('completedAt이 없으면 durationMinutes는 null이다', () => {
+    const session = {
+      id: 's1',
+      startedAt: new Date('2026-07-22T00:00:00.000Z'),
+      completedAt: null,
+      scenario: { title: 'x' },
+      sessionTurns: [],
+    }
+
+    const result = buildSessionReportPayload({ session, staffName: '검증알바', industry: null })
+
+    expect(result.durationMinutes).toBeNull()
+    expect(result.checklist).toEqual([])
+  })
+})
+
+describe('buildSessionSummary', () => {
+  it('기준 충족 개수와 점수를 계산한다', () => {
+    const sessionTurns = [
+      { turnNumber: 1, retryCount: 0, evaluation: { metItems: [{ item: 'ETA 안내', met: true }] } },
+      { turnNumber: 2, retryCount: 0, evaluation: { metItems: [{ item: '사과 표현', met: false }] } },
+    ]
+
+    const result = buildSessionSummary(sessionTurns)
+
+    expect(result.passedCount).toBe(1)
+    expect(result.totalCount).toBe(2)
+    expect(result.score).toBe(75) // maxHearts 4, heartsRemaining 3 (computeHearts 테스트와 같은 케이스)
+  })
+
+  it('채점 기준이 하나도 없으면 점수는 null이다', () => {
+    const result = buildSessionSummary([])
+
+    expect(result.passedCount).toBe(0)
+    expect(result.totalCount).toBe(0)
+    expect(result.score).toBeNull()
+  })
 })

@@ -133,9 +133,6 @@ function RubricApproval({
           </p>
           {onDone && (
             <div className="rubric-head-actions">
-              <button type="button" className="link-inline" onClick={() => onNavigate('correctionHistory')}>
-                정정 이력 모아보기 →
-              </button>
               <button type="button" className="btn-primary-sm reset-rules-btn" onClick={onResetRules}>
                 기준 재설정
               </button>

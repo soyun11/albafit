@@ -5,6 +5,8 @@ import './AppNav.css'
 const OWNER_LINKS = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'rubricManage', label: '기준 관리' },
+  { key: 'sessionReview', label: '채점 검토' },
+  { key: 'correctionHistory', label: '채점 검토 이력' },
 ]
 
 const STAFF_LINKS = [

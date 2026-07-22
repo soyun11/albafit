@@ -13,6 +13,7 @@ import TrainingSession from './components/TrainingSession'
 import FeedbackReport from './components/FeedbackReport'
 import TurnCalibrationReview from './components/TurnCalibrationReview'
 import CorrectionHistory from './components/CorrectionHistory'
+import SessionReview from './components/SessionReview'
 import OwnerDashboard from './components/OwnerDashboard'
 import VerifyEmail from './components/VerifyEmail'
 import GuestTry from './components/GuestTry'
@@ -50,6 +51,9 @@ function App() {
   const [trainingResult, setTrainingResult] = useState(null)
   const [reportStaffName, setReportStaffName] = useState(null)
   const [reportSessionId, setReportSessionId] = useState(null)
+  // 리포트 화면에 사장님이 어디서 들어왔는지('dashboard' 알바 목록 vs 'sessionReview' 전체 세션
+  // 목록) — FeedbackReport의 AppNav가 그 출발 탭을 active로 표시해야 해서 기억해둔다.
+  const [reportOrigin, setReportOrigin] = useState('dashboard')
   // "기준 재설정" 흐름 중인지 — true면 industry/rules/rubricManage 화면이 StepSidebar를 같이 보여주고
   // step을 눌러 자유롭게 오갈 수 있다. resetRawText는 그 흐름의 step2(규칙)를 저장된 원문으로 채우는 값,
   // resetItems는 카드별 원래 라벨을 그대로 복원하기 위한 값(과거 데이터엔 없어서 null일 수 있음).
@@ -193,6 +197,29 @@ function App() {
       })
       setReportStaffName(data.staffName)
       setReportSessionId(data.sessionId)
+      setReportOrigin('dashboard')
+      setScreen('feedback')
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  // "채점 검토"(전체 세션 목록)에서 세션 하나를 골랐을 때 — handleViewReport와 달리 그 알바의
+  // "최신 세션"이 아니라 고른 세션 그 자체의 리포트를 불러온다.
+  async function handleViewSessionReport(sessionId) {
+    try {
+      const data = await apiFetch(`/api/sessions/${sessionId}/report`)
+      setTrainingResult({
+        checklist: data.checklist,
+        scenarioTag: data.scenarioTitle,
+        durationMinutes: data.durationMinutes,
+        industry: data.industry,
+        heartsRemaining: data.heartsRemaining,
+        maxHearts: data.maxHearts,
+      })
+      setReportStaffName(data.staffName)
+      setReportSessionId(data.sessionId)
+      setReportOrigin('sessionReview')
       setScreen('feedback')
     } catch (err) {
       alert(err.message)
@@ -392,6 +419,7 @@ function App() {
         maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
         onCalibrate={reportStaffName ? () => setScreen('calibration') : undefined}
+        reportOrigin={reportOrigin}
         role={user?.role}
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
@@ -414,6 +442,16 @@ function App() {
   if (effectiveScreen === 'correctionHistory') {
     return (
       <CorrectionHistory
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
+  }
+  if (effectiveScreen === 'sessionReview') {
+    return (
+      <SessionReview
+        onViewReport={handleViewSessionReport}
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}

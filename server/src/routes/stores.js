@@ -8,10 +8,10 @@ import { findReuseCandidateBatches, findBestReuseCandidate } from '../lib/rubric
 import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
-import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
+import { pickFinalAttempts, computeHearts, buildSessionReportPayload } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { sessionsCountingAsCurrent } from '../lib/sessionLifecycle.js'
-import { buildCorrectionHistory } from '../lib/evaluationCalibration.js'
+import { buildCorrectionHistory, buildSessionOverview } from '../lib/evaluationCalibration.js'
 import { buildRecentTrainingHistory } from '../lib/myProgress.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
@@ -581,49 +581,40 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
       return res.status(404).json({ error: 'this staff has no completed training yet' })
     }
 
-    // 체크리스트는 "지금 승인돼있는 최신 루브릭"이 아니라, 그 세션 turn마다 실제로 채점됐던
-    // 기준(evaluation.metItems)에서 그대로 뽑는다. "기준 재설정"으로 루브릭 문구가 그 뒤에 바뀌면
-    // 지금 루브릭과 그때 평가 기록의 item 문구가 안 맞아서 전부 미충족으로 잘못 보일 수 있다 —
-    // 리포트는 항상 "그 순간 실제로 무엇을 기준으로 채점됐는지"를 보여줘야 한다.
-    // 여러 턴에 걸쳐 한 번이라도 충족했으면 그 기준은 "충족"으로 본다 — 실시간 훈련 화면
-    // (TrainingSession.jsx)이 체크리스트를 누적해서 보여주는 것과 같은 규칙.
-    const allLabels = new Set()
-    const metLabels = new Set()
-    for (const turn of pickFinalAttempts(session.sessionTurns)) {
-      for (const item of turn.evaluation?.metItems ?? []) {
-        allLabels.add(item.item)
-        if (item.met) metLabels.add(item.item)
-      }
-    }
-
-    const checklist = [...allLabels].map((label) => ({
-      label,
-      status: metLabels.has(label) ? 'ok' : 'wait',
-    }))
-
-    // 점수는 목록(/me/staff-report)과 같은 기준(하트 잔량 비율)으로 맞춘다 — computeHearts에 넘기는
-    // sessionTurns가 같으니 자동으로 목록 점수와 일치한다.
-    const { maxHearts, heartsRemaining } = computeHearts(session.sessionTurns)
-
-    // "총 훈련 시간"·업종 태그도 예전엔 고정 문구("18분", "카페 · 디저트 기준")였던 걸 실제 값으로 채운다.
-    const durationMinutes = session.completedAt
-      ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
-      : null
+    // 체크리스트·점수·소요시간 계산은 특정 세션이 "이 알바 최신 세션으로 찾아졌든"
+    // "/api/sessions/:id/report처럼 세션id로 직접 찾아졌든" 항상 같은 규칙을 써야 한다 —
+    // buildSessionReportPayload(sessionTurns.js)로 뽑아서 둘이 갈라지지 않게 한다.
     const store = await prisma.store.findUnique({ where: { id: req.user.storeId } })
 
-    return res.json({
-      sessionId: session.id,
-      checklist,
-      scenarioTitle: session.scenario.title,
-      staffName: staffUser.name,
-      durationMinutes,
-      industry: store?.industry ?? null,
-      heartsRemaining,
-      maxHearts,
-    })
+    return res.json(
+      buildSessionReportPayload({ session, staffName: staffUser.name, industry: store?.industry ?? null }),
+    )
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch staff report' })
+  }
+})
+
+// ============================================================
+// 전체 훈련 세션 목록 — GET /api/stores/me/sessions (사장님 전용)
+// 알바별로 "가장 최근 세션 1개"만 볼 수 있던 것과 달리, 매장에서 완료된 세션 전부를 나열해서
+// 원하는 세션을 골라 리포트→AI 채점 검토로 들어갈 수 있게 한다 (docs/session-review.md).
+// ============================================================
+router.get('/me/sessions', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const sessions = await prisma.trainingSession.findMany({
+      where: { storeId: req.user.storeId, status: 'completed' },
+      include: { scenario: true, staff: true, sessionTurns: true },
+      orderBy: { completedAt: 'desc' },
+    })
+    return res.json({ sessions: buildSessionOverview(sessions) })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to list sessions' })
   }
 })
 

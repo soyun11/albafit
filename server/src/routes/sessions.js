@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
 import { runCrossCheck } from '../lib/evaluatorCrossCheck.js'
-import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { findOwnedTurn, applyOwnerCorrection, buildTurnCalibrationView } from '../lib/evaluationCalibration.js'
 
@@ -310,6 +310,34 @@ router.get('/:id', requireAuth, async (req, res) => {
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch session' })
+  }
+})
+
+// ============================================================
+// 세션 하나의 리포트 데이터 — GET /api/sessions/:id/report (사장님 전용)
+// "채점 검토"(전체 세션 목록, stores.js의 /me/sessions)에서 세션 하나를 골랐을 때, 그 알바의
+// "최신 세션"이 아니라 그 세션 자체의 리포트를 보여주기 위한 용도 — /me/staff/:staffId/latest-report와
+// 같은 계산(buildSessionReportPayload)을 세션id 기준으로 재사용한다.
+// ============================================================
+router.get('/:id/report', requireAuth, requireRole('owner'), async (req, res) => {
+  try {
+    const session = await prisma.trainingSession.findUnique({
+      where: { id: req.params.id },
+      include: { scenario: true, sessionTurns: true, staff: true, store: true },
+    })
+    if (!session || session.storeId !== req.user.storeId) {
+      return res.status(404).json({ error: 'session not found' })
+    }
+    return res.json(
+      buildSessionReportPayload({
+        session,
+        staffName: session.staff?.name ?? session.staffLabel ?? '알 수 없음',
+        industry: session.store?.industry ?? null,
+      }),
+    )
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch session report' })
   }
 })
 

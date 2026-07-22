@@ -1,4 +1,5 @@
 import prisma from './prisma.js'
+import { buildSessionSummary } from './sessionTurns.js'
 
 /**
  * SessionTurn 배열을 사장님 캘리브레이션 화면이 그리기 쉬운 평평한 형태로 변환한다.
@@ -78,6 +79,31 @@ export function buildCorrectionHistory(sessionTurns) {
   }
 
   return rows.sort((a, b) => new Date(b.correctedAt) - new Date(a.correctedAt))
+}
+
+/**
+ * 매장 전체의 완료된 훈련 세션을 "채점 검토" 목록 화면이 그리기 쉬운 형태로 만든다.
+ * buildCorrectionHistory와 달리 이미 교정을 남긴 것만 거르지 않고, 완료된 세션 전부를 대상으로 한다
+ * (docs/session-review.md — 알바별 최신 세션 1개만 보이던 것과 달리 전체 세션을 골라 들어갈 수 있게).
+ * @param {Array<{id, completedAt, scenario: {title}, staff: {name}|null, staffLabel: string|null, sessionTurns: Array}>} sessions
+ */
+export function buildSessionOverview(sessions) {
+  return sessions.map((session) => {
+    const { passedCount, totalCount, score } = buildSessionSummary(session.sessionTurns)
+    return {
+      sessionId: session.id,
+      staffName: session.staff?.name ?? session.staffLabel ?? '알 수 없음',
+      scenarioTitle: session.scenario.title,
+      completedAt: session.completedAt,
+      score,
+      passedCount,
+      totalCount,
+      // pickFinalAttempts로 거르지 않은 원본 sessionTurns 전체를 본다 — 캘리브레이션 화면은
+      // 재시도 턴까지 전부 개별 카드로 보여주고 그 어느 턴에도 교정을 남길 수 있어서, 최종
+      // 시도만 보면 재시도 턴에 남긴 교정을 놓친다.
+      hasCorrection: session.sessionTurns.some((t) => Boolean(t.evaluation?.ownerCorrection)),
+    }
+  })
 }
 
 // rubrics.js의 findOwnedRubric과 같은 패턴 — turn -> session -> store 관계를 타고 올라가

@@ -49,6 +49,7 @@ function FeedbackReport({
   maxHearts,
   staffName = '나',
   onCalibrate,
+  reportOrigin = 'dashboard',
   role,
   onNavigate,
   onChangePassword,
@@ -83,7 +84,7 @@ function FeedbackReport({
     <div className="report-page">
       <AppNav
         role={role}
-        current={onCalibrate ? 'dashboard' : undefined}
+        current={onCalibrate ? reportOrigin : undefined}
         onNavigate={onNavigate}
         onChangePassword={onChangePassword}
         onLogout={onLogout}

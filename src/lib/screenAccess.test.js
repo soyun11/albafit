@@ -24,6 +24,12 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('correctionHistory', null)).toBe(false)
   })
 
+  it('전체 세션 목록(sessionReview)도 사장님 전용이다', () => {
+    expect(isScreenAllowed('sessionReview', owner)).toBe(true)
+    expect(isScreenAllowed('sessionReview', staff)).toBe(false)
+    expect(isScreenAllowed('sessionReview', null)).toBe(false)
+  })
+
   it('알바 전용 화면은 staff만 허용한다', () => {
     expect(isScreenAllowed('training', staff)).toBe(true)
     expect(isScreenAllowed('training', owner)).toBe(false)

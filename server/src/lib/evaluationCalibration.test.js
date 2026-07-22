@@ -7,7 +7,7 @@ vi.mock('./prisma.js', () => ({
 }))
 
 import prisma from './prisma.js'
-import { buildTurnCalibrationView, applyOwnerCorrection, findOwnedTurn, buildCorrectionHistory } from './evaluationCalibration.js'
+import { buildTurnCalibrationView, applyOwnerCorrection, findOwnedTurn, buildCorrectionHistory, buildSessionOverview } from './evaluationCalibration.js'
 
 describe('buildTurnCalibrationView', () => {
   it('턴 배열을 사장님 화면이 그리기 쉬운 형태로 변환한다', () => {
@@ -272,5 +272,71 @@ describe('buildCorrectionHistory', () => {
 
   it('빈 배열이면 빈 배열을 반환한다', () => {
     expect(buildCorrectionHistory([])).toEqual([])
+  })
+})
+
+describe('buildSessionOverview', () => {
+  function makeSession({ id, completedAt = null, staffName = '검증알바', staffLabel = null, scenarioTitle = '품절 메뉴 대처', sessionTurns = [] }) {
+    return {
+      id,
+      completedAt,
+      staff: staffName ? { name: staffName } : null,
+      staffLabel,
+      scenario: { title: scenarioTitle },
+      sessionTurns,
+    }
+  }
+
+  it('세션을 목록 화면이 그리기 쉬운 형태로 변환하고 점수·기준충족을 같이 담는다', () => {
+    const sessions = [
+      makeSession({
+        id: 's1',
+        completedAt: '2026-07-22T01:00:00.000Z',
+        sessionTurns: [{ turnNumber: 1, retryCount: 0, evaluation: { metItems: [{ item: 'a', met: true }] } }],
+      }),
+    ]
+
+    expect(buildSessionOverview(sessions)).toEqual([
+      {
+        sessionId: 's1',
+        staffName: '검증알바',
+        scenarioTitle: '품절 메뉴 대처',
+        completedAt: '2026-07-22T01:00:00.000Z',
+        score: 100,
+        passedCount: 1,
+        totalCount: 1,
+        hasCorrection: false,
+      },
+    ])
+  })
+
+  it('staff 계정이 없는 레거시 세션은 staffLabel로 대체한다', () => {
+    const sessions = [makeSession({ id: 's1', staffName: null, staffLabel: '김알바', scenarioTitle: 'x' })]
+
+    expect(buildSessionOverview(sessions)[0].staffName).toBe('김알바')
+  })
+
+  it('staff도 staffLabel도 없으면 "알 수 없음"으로 대체한다', () => {
+    const sessions = [makeSession({ id: 's1', staffName: null, staffLabel: null, scenarioTitle: 'x' })]
+
+    expect(buildSessionOverview(sessions)[0].staffName).toBe('알 수 없음')
+  })
+
+  it('턴 중 하나라도 ownerCorrection이 있으면 hasCorrection은 true다', () => {
+    const sessions = [
+      makeSession({
+        id: 's1',
+        sessionTurns: [
+          { turnNumber: 1, retryCount: 0, evaluation: { metItems: [] } },
+          { turnNumber: 2, retryCount: 0, evaluation: { metItems: [], ownerCorrection: { correctedItems: [], comment: '', correctedAt: '2026-07-22T00:00:00.000Z' } } },
+        ],
+      }),
+    ]
+
+    expect(buildSessionOverview(sessions)[0].hasCorrection).toBe(true)
+  })
+
+  it('빈 배열이면 빈 배열을 반환한다', () => {
+    expect(buildSessionOverview([])).toEqual([])
   })
 })
