@@ -131,10 +131,10 @@
 
 ### 7/22 (수) — 기능강화② 구현 + 평가 캘리브레이션 + 워크플로우 문서
 - [x] 기능 강화② 구현 — `server/src/lib/evaluatorCrossCheck.js` (Gemini↔OpenAI 교차검증, fire-and-forget, 참고 로그만), 테스트 12개 + `feature-verifier` 통합 검증 통과. 설계·검증 근거는 `docs/evaluation-cross-check.md`, GitHub #5
-- [ ] **평가 에이전트 캘리브레이션** ★ (human-in-the-loop)
-  - [ ] 사장님이 초기 평가 결과 몇 개를 검토·교정하는 화면/흐름
-  - [ ] 오답 케이스 모아 루브릭·프롬프트 다듬기
-  - [ ] 엣지 케이스 테스트 (빈 답변, 무관한 답변, 규칙에 없는 얘기)
+- [x] **평가 에이전트 캘리브레이션** ★ (human-in-the-loop)
+  - [x] 사장님이 초기 평가 결과 몇 개를 검토·교정하는 화면/흐름 — `TurnCalibrationReview.jsx` + `PATCH /api/sessions/turns/:turnId/calibration`, 브라우저로 토글·저장·새로고침 후 유지까지 확인. 설계·검증 근거는 `docs/evaluation-calibration.md`, GitHub #6
+  - [x] 오답 케이스 모아 루브릭·프롬프트 다듬기 — 이번 이슈 스코프는 "사람이 검토·수정할 수 있다"까지. `ownerCorrection`이 DB에 쌓이는 것 자체가 원재료 축적(자동 다듬기는 하지 않음, 과설계 방지)
+  - [x] 엣지 케이스 테스트 (빈 답변, 무관한 답변, 규칙에 없는 얘기) — `feature-verifier`로 확인: 빈 답변은 API가 이미 400으로 차단, 성의없는 답변·무관한 답변 둘 다 Gemini가 정직하게 `met:false` 판정
 - [ ] 나만의 Agent 워크플로우 문서화 — task-planner(계획) → 구현 → feature-verifier(검증) 흐름
   - [x] 코드 검증 Agent 제작 및 활용 — `feature-verifier`(`.claude/agents/feature-verifier.md`), 시나리오 생성 기능에 실제 적용 완료 (7/17)
 

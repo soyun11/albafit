@@ -25,7 +25,12 @@ function ReportList({ onNavigate, onChangePassword, onLogout, onViewReport }) {
 
       <div className="report-list-wrap">
         <h1>알바 리포트</h1>
-        <p className="sub">알바를 선택하면 훈련 결과와 교정 피드백을 볼 수 있어요.</p>
+        <p className="sub">
+          알바를 선택하면 훈련 결과와 교정 피드백을 볼 수 있어요.{' '}
+          <button type="button" className="link-inline" onClick={() => onNavigate('correctionHistory')}>
+            정정 이력 모아보기 →
+          </button>
+        </p>
 
         {error && <p className="report-list-error">{error}</p>}
 

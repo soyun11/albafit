@@ -1,11 +1,12 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma.js'
-import { requireAuth } from '../middleware/requireAuth.js'
+import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
 import { runCrossCheck } from '../lib/evaluatorCrossCheck.js'
 import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
+import { findOwnedTurn, applyOwnerCorrection, buildTurnCalibrationView } from '../lib/evaluationCalibration.js'
 
 const router = Router()
 
@@ -264,6 +265,34 @@ router.post('/:id/abandon', requireAuth, async (req, res) => {
 })
 
 // ============================================================
+// 평가 캘리브레이션 — PATCH /api/sessions/turns/:turnId/calibration (사장님 전용)
+// 사장님이 Gemini 채점(evaluation.metItems)이 틀렸다고 판단한 항목을 직접 교정한다.
+// 원본 AI 판정은 그대로 두고 evaluation.ownerCorrection에 별도로 남긴다
+// (docs/evaluation-calibration.md "결정" 표 참고).
+// ============================================================
+router.patch('/turns/:turnId/calibration', requireAuth, requireRole('owner'), async (req, res) => {
+  const { correctedItems, comment } = req.body ?? {}
+
+  try {
+    const { turn, error } = await findOwnedTurn(req.params.turnId, req.user.storeId)
+    if (error) {
+      return res.status(error.status).json({ error: error.message })
+    }
+
+    const evaluation = applyOwnerCorrection(turn.evaluation, { correctedItems, comment })
+
+    const updated = await prisma.sessionTurn.update({
+      where: { id: turn.id },
+      data: { evaluation },
+    })
+    return res.json(updated)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to save calibration' })
+  }
+})
+
+// ============================================================
 // 세션 조회 — GET /api/sessions/:id (리포트 화면용)
 // ============================================================
 router.get('/:id', requireAuth, async (req, res) => {
@@ -275,7 +304,9 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!session || session.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'session not found' })
     }
-    return res.json(session)
+    // turns — 캘리브레이션 화면(TurnCalibrationReview.jsx)이 바로 그리기 쉬운 평평한 형태.
+    // 기존 session.sessionTurns(원본 Prisma 형태)는 다른 소비자를 위해 그대로 둔다.
+    return res.json({ ...session, turns: buildTurnCalibrationView(session.sessionTurns) })
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch session' })

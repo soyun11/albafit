@@ -96,7 +96,10 @@ CREATE TABLE session_turns (
   turn_number       INT NOT NULL,
   customer_message  TEXT NOT NULL,
   staff_answer      TEXT NOT NULL,
-  evaluation        JSONB NOT NULL,   -- {충족여부, 빠진기준[], 피드백, 개선문장}
+  evaluation        JSONB NOT NULL,   -- {충족여부, 빠진기준[], 피드백, 개선문장, ownerCorrection?}
+                                      -- ownerCorrection(선택): {correctedItems: [{item, met}], comment, correctedAt}
+                                      -- 사장님이 캘리브레이션 화면에서 AI 채점을 교정한 값. 원본 필드는 그대로 두고
+                                      -- 이 하위 필드로만 추가한다(docs/evaluation-calibration.md 참고).
   passed            BOOLEAN NOT NULL,
   retry_count       INT NOT NULL DEFAULT 0,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now()

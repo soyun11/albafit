@@ -11,6 +11,7 @@ import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { sessionsCountingAsCurrent } from '../lib/sessionLifecycle.js'
+import { buildCorrectionHistory } from '../lib/evaluationCalibration.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -609,6 +610,7 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
     const store = await prisma.store.findUnique({ where: { id: req.user.storeId } })
 
     return res.json({
+      sessionId: session.id,
       checklist,
       scenarioTitle: session.scenario.title,
       staffName: staffUser.name,
@@ -620,6 +622,29 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch staff report' })
+  }
+})
+
+// ============================================================
+// 정정 이력 모아보기 — GET /api/stores/me/corrections (사장님 전용)
+// 사장님이 평가 캘리브레이션 화면에서 남긴 교정만 매장 전체에서 모아 최근순으로 보여준다
+// (docs/evaluation-calibration.md — 코멘트만 쌓이고 아무도 안 보는 걸 막기 위해 추가).
+// ============================================================
+router.get('/me/corrections', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const turns = await prisma.sessionTurn.findMany({
+      where: { session: { storeId: req.user.storeId } },
+      include: { session: { include: { staff: true, scenario: true } } },
+    })
+
+    return res.json({ corrections: buildCorrectionHistory(turns) })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch correction history' })
   }
 })
 

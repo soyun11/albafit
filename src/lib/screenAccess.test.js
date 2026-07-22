@@ -12,6 +12,18 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('dashboard', null)).toBe(false)
   })
 
+  it('평가 캘리브레이션 화면(calibration)은 사장님 전용이다 — 알바 성적 교정 기능이라 알바에게 노출되면 안 된다', () => {
+    expect(isScreenAllowed('calibration', owner)).toBe(true)
+    expect(isScreenAllowed('calibration', staff)).toBe(false)
+    expect(isScreenAllowed('calibration', null)).toBe(false)
+  })
+
+  it('정정 이력 모아보기 화면(correctionHistory)도 사장님 전용이다', () => {
+    expect(isScreenAllowed('correctionHistory', owner)).toBe(true)
+    expect(isScreenAllowed('correctionHistory', staff)).toBe(false)
+    expect(isScreenAllowed('correctionHistory', null)).toBe(false)
+  })
+
   it('알바 전용 화면은 staff만 허용한다', () => {
     expect(isScreenAllowed('training', staff)).toBe(true)
     expect(isScreenAllowed('training', owner)).toBe(false)

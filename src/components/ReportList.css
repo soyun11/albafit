@@ -27,6 +27,15 @@
   font-size: 13.5px;
   color: var(--color-text-secondary);
   margin: 4px 0 24px;
+}.report-list-page .link-inline {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--color-text-accent);
+  text-decoration: underline;
+  cursor: pointer;
 }.report-list-page .panel {
   padding: 22px 24px;
 }.report-list-page .staff-table {

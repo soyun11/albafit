@@ -10,6 +10,8 @@ import StaffInvite from './components/StaffInvite'
 import ScenarioSelect from './components/ScenarioSelect'
 import TrainingSession from './components/TrainingSession'
 import FeedbackReport from './components/FeedbackReport'
+import TurnCalibrationReview from './components/TurnCalibrationReview'
+import CorrectionHistory from './components/CorrectionHistory'
 import OwnerDashboard from './components/OwnerDashboard'
 import ReportList from './components/ReportList'
 import VerifyEmail from './components/VerifyEmail'
@@ -47,6 +49,7 @@ function App() {
   const [selectedScenario, setSelectedScenario] = useState(null)
   const [trainingResult, setTrainingResult] = useState(null)
   const [reportStaffName, setReportStaffName] = useState(null)
+  const [reportSessionId, setReportSessionId] = useState(null)
   // "기준 재설정" 흐름 중인지 — true면 industry/rules/rubricManage 화면이 StepSidebar를 같이 보여주고
   // step을 눌러 자유롭게 오갈 수 있다. resetRawText는 그 흐름의 step2(규칙)를 저장된 원문으로 채우는 값,
   // resetItems는 카드별 원래 라벨을 그대로 복원하기 위한 값(과거 데이터엔 없어서 null일 수 있음).
@@ -171,6 +174,7 @@ function App() {
       maxHearts,
     })
     setReportStaffName(null)
+    setReportSessionId(null)
     setScreen('feedback')
   }
 
@@ -188,6 +192,7 @@ function App() {
         maxHearts: data.maxHearts,
       })
       setReportStaffName(data.staffName)
+      setReportSessionId(data.sessionId)
       setScreen('feedback')
     } catch (err) {
       alert(err.message)
@@ -384,6 +389,28 @@ function App() {
         heartsRemaining={trainingResult?.heartsRemaining}
         maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
+        onCalibrate={reportStaffName ? () => setScreen('calibration') : undefined}
+      />
+    )
+  }
+  if (effectiveScreen === 'calibration') {
+    return (
+      <TurnCalibrationReview
+        sessionId={reportSessionId}
+        staffName={reportStaffName}
+        onBack={() => setScreen('feedback')}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
+  }
+  if (effectiveScreen === 'correctionHistory') {
+    return (
+      <CorrectionHistory
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
       />
     )
   }

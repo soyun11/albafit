@@ -48,6 +48,7 @@ function FeedbackReport({
   heartsRemaining,
   maxHearts,
   staffName = '나',
+  onCalibrate,
 }) {
   const [shared, setShared] = useState(false)
 
@@ -142,9 +143,15 @@ function FeedbackReport({
           <button type="button" className="btn-ghost" onClick={onRetry}>
             다시 훈련하기
           </button>
-          <button type="button" className="btn-primary" onClick={handleShare}>
-            {shared ? '공유됐어요!' : '리포트 사장님께 공유'}
-          </button>
+          {onCalibrate ? (
+            <button type="button" className="btn-primary" onClick={onCalibrate}>
+              AI 채점 검토하기
+            </button>
+          ) : (
+            <button type="button" className="btn-primary" onClick={handleShare}>
+              {shared ? '공유됐어요!' : '리포트 사장님께 공유'}
+            </button>
+          )}
         </div>
       </div>
     </div>
