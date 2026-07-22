@@ -38,9 +38,12 @@ function AppNav({ role, current, onNavigate, onChangePassword, onLogout, childre
                 className={`app-nav-link ${current === link.key ? 'active' : ''}`}
                 onClick={() => onNavigate(link.key)}
                 disabled={isDisabled}
-                title={isDisabled ? '매장 설정을 마치면 이용할 수 있어요' : undefined}
+                aria-current={current === link.key ? 'page' : undefined}
               >
                 {link.label}
+                {/* title 툴팁은 마우스 호버에만 반응해 모바일(터치)에서는 안 보인다 — 항상 보이는
+                    캡션으로 대체한다. */}
+                {isDisabled && <span className="app-nav-link-hint">매장 설정을 마치면 이용할 수 있어요</span>}
               </button>
             )
           })}
