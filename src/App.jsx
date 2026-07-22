@@ -265,7 +265,15 @@ function App() {
     return <Signup onHome={goHome} onLogin={() => setScreen('login')} onSignupSuccess={handleSignupSuccess} />
   }
   if (effectiveScreen === 'changePassword') {
-    return <ChangePassword onHome={goHome} onBack={() => setScreen(landingScreenFor(user))} />
+    return (
+      <ChangePassword
+        onBack={() => setScreen(landingScreenFor(user))}
+        role={user?.role}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (effectiveScreen === 'industry') {

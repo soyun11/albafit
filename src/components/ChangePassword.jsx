@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import './Login.css'
+import AppNav from './AppNav'
 import mascotCoach from '../../img/mascot-coach.png'
 import { apiFetch } from '../lib/api'
 
 // 로그인된 상태에서만 접근. 알바가 사장님이 정해준 초기 비밀번호를 바꿀 때 주로 쓴다.
-function ChangePassword({ onHome, onBack }) {
+function ChangePassword({ onBack, role, onNavigate, onChangePassword, onLogout }) {
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [error, setError] = useState('')
@@ -36,11 +37,7 @@ function ChangePassword({ onHome, onBack }) {
 
   return (
     <div className="auth-page">
-      <nav className="auth-nav">
-        <button type="button" className="logo-word mono" onClick={onHome}>
-          albafit
-        </button>
-      </nav>
+      <AppNav role={role} onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
 
       <div className="auth-wrap">
         <div className="head">

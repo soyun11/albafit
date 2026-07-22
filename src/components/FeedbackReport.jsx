@@ -83,7 +83,7 @@ function FeedbackReport({
     <div className="report-page">
       <AppNav
         role={role}
-        current={onCalibrate ? 'reports' : 'scenario'}
+        current={onCalibrate ? 'reports' : undefined}
         onNavigate={onNavigate}
         onChangePassword={onChangePassword}
         onLogout={onLogout}
