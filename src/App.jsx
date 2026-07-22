@@ -380,7 +380,6 @@ function App() {
   if (effectiveScreen === 'feedback') {
     return (
       <FeedbackReport
-        onHome={goHome}
         onRetry={() => setScreen('scenario')}
         checklist={trainingResult?.checklist}
         scenarioTag={trainingResult?.scenarioTag}
@@ -390,6 +389,10 @@ function App() {
         maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
         onCalibrate={reportStaffName ? () => setScreen('calibration') : undefined}
+        role={user?.role}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
       />
     )
   }

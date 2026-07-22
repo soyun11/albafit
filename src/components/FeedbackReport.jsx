@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import './FeedbackReport.css'
+import AppNav from './AppNav'
 import mascotApprove from '../../img/mascot-approve.png'
 import mascotConfused from '../../img/mascot-confused.png'
 import mascotCoach from '../../img/mascot-coach.png'
@@ -39,7 +40,6 @@ function buildItemsFromChecklist(checklist) {
 }
 
 function FeedbackReport({
-  onHome,
   onRetry,
   checklist,
   scenarioTag,
@@ -49,6 +49,10 @@ function FeedbackReport({
   maxHearts,
   staffName = '나',
   onCalibrate,
+  role,
+  onNavigate,
+  onChangePassword,
+  onLogout,
 }) {
   const [shared, setShared] = useState(false)
 
@@ -56,8 +60,15 @@ function FeedbackReport({
   const passedCount = items.filter((item) => item.status === 'ok').length
   // 점수는 훈련 중 남은 하트 비율로 매긴다(기준을 하나도 못 채운 답변에서만 하트가 깎이는 방식) —
   // 하트 정보가 없는 경우(과거 데이터 등)에는 기준 충족 비율로 대신 계산한다.
+  // 단, 충족한 기준이 하나도 없으면(passedCount === 0) 하트 비율과 무관하게 0점이다 — 답변을 하나도
+  // 안 해서 하트가 안 깎인 것(잔량 100%)과 재시도 없이 완벽하게 통과한 것(잔량도 100%)을 하트
+  // 비율만으로는 구분할 수 없어서, "실제로 충족한 기준이 있는지"를 우선 확인한다.
   const score =
-    maxHearts > 0 ? Math.round((heartsRemaining / maxHearts) * 100) : Math.round((passedCount / items.length) * 100)
+    passedCount === 0
+      ? 0
+      : maxHearts > 0
+        ? Math.round((heartsRemaining / maxHearts) * 100)
+        : Math.round((passedCount / items.length) * 100)
   const industryLabel = INDUSTRIES.find((i) => i.key === industry)?.label ?? '카페 · 디저트'
   const summaryLine = scenarioTag
     ? `${industryLabel} 기준 · ${scenarioTag} 시나리오 완료`
@@ -70,14 +81,13 @@ function FeedbackReport({
 
   return (
     <div className="report-page">
-      <nav className="report-nav">
-        <button type="button" className="logo-word mono" onClick={onHome}>
-          albafit
-        </button>
-        <button type="button" className="nav-link" onClick={onHome}>
-          홈으로 돌아가기
-        </button>
-      </nav>
+      <AppNav
+        role={role}
+        current={onCalibrate ? 'reports' : 'scenario'}
+        onNavigate={onNavigate}
+        onChangePassword={onChangePassword}
+        onLogout={onLogout}
+      />
 
       <div className="report-wrap">
         <div className="summary-card glass">
@@ -140,9 +150,11 @@ function FeedbackReport({
         </div>
 
         <div className="actions">
-          <button type="button" className="btn-ghost" onClick={onRetry}>
-            다시 훈련하기
-          </button>
+          {!onCalibrate && (
+            <button type="button" className="btn-ghost" onClick={onRetry}>
+              다시 훈련하기
+            </button>
+          )}
           {onCalibrate ? (
             <button type="button" className="btn-primary" onClick={onCalibrate}>
               AI 채점 검토하기
