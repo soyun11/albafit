@@ -56,6 +56,8 @@
   color: var(--color-text-secondary);
   line-height: 1.7;
   margin-bottom: 16px;
+}.rubric-page .rubric-head .reset-rules-btn {
+  margin-bottom: 4px;
 }.rubric-page .rubric-tabs {
   display: flex;
   gap: 8px;
