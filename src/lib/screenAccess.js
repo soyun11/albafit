@@ -1,7 +1,7 @@
 // 사장님 전용 / 알바 전용 화면. 여기 없는 화면(랜딩, 로그인, 체험하기 등)은 역할·로그인 여부와
 // 무관하게 항상 허용한다.
 const OWNER_SCREENS = new Set(['industry', 'rules', 'rubric', 'rubricManage', 'invite', 'reports', 'dashboard', 'calibration', 'correctionHistory'])
-const STAFF_SCREENS = new Set(['scenario', 'training'])
+const STAFF_SCREENS = new Set(['scenario', 'training', 'myProgress'])
 // 역할은 안 가리지만 로그인은 해야 하는 화면 — changePassword는 계정 설정, feedback은 알바가 자기
 // 결과를 보는 것과 사장님이 리포트에서 남의 결과를 보는 것 둘 다에 쓰여서 특정 역할 전용이 아니다.
 const AUTH_ONLY_SCREENS = new Set(['changePassword', 'feedback'])

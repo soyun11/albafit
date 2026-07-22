@@ -30,6 +30,12 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('training', null)).toBe(false)
   })
 
+  it('내 훈련 현황 화면(myProgress)도 알바 전용이다', () => {
+    expect(isScreenAllowed('myProgress', staff)).toBe(true)
+    expect(isScreenAllowed('myProgress', owner)).toBe(false)
+    expect(isScreenAllowed('myProgress', null)).toBe(false)
+  })
+
   it('로그인만 하면 되는 공용 화면(changePassword, feedback)은 역할 무관 허용, 비로그인은 차단한다', () => {
     expect(isScreenAllowed('changePassword', owner)).toBe(true)
     expect(isScreenAllowed('changePassword', staff)).toBe(true)

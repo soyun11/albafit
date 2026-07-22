@@ -12,6 +12,7 @@ import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { sessionsCountingAsCurrent } from '../lib/sessionLifecycle.js'
 import { buildCorrectionHistory } from '../lib/evaluationCalibration.js'
+import { buildRecentTrainingHistory } from '../lib/myProgress.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -645,6 +646,49 @@ router.get('/me/corrections', requireAuth, requireRole('owner'), async (req, res
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch correction history' })
+  }
+})
+
+// ============================================================
+// 내 훈련 현황 — GET /api/stores/me/my-progress (알바 전용)
+// /me/staff-report(사장님이 여러 알바를 집계)와 같은 계산 방식(최신 배치 시나리오 수 기준 완료율,
+// computeHearts 기반 점수)을 알바 본인 1명 기준으로 단순화해서 재사용한다 — 그래야 알바가 보는
+// 자기 점수와 사장님이 보는 점수가 항상 일치한다 (docs/staff-my-progress.md 참고).
+// ============================================================
+router.get('/me/my-progress', requireAuth, requireRole('staff'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const latestStoreRuleId = await getLatestStoreRuleId(req.user.storeId)
+
+    const [me, scenarios, sessions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.user.id } }),
+      prisma.scenario.findMany({ where: { storeId: req.user.storeId, storeRuleId: latestStoreRuleId } }),
+      prisma.trainingSession.findMany({
+        where: { storeId: req.user.storeId, staffId: req.user.id },
+        include: { scenario: true, sessionTurns: true },
+      }),
+    ])
+
+    const totalCount = scenarios.length
+    const currentScenarioIds = new Set(scenarios.map((s) => s.id))
+    const completed = sessions.filter((s) => s.status === 'completed')
+    const completedTypes = new Set(completed.filter((s) => currentScenarioIds.has(s.scenarioId)).map((s) => s.scenarioId))
+
+    const recentHistory = buildRecentTrainingHistory(completed)
+
+    return res.json({
+      staffName: me?.name ?? null,
+      completedCount: completedTypes.size,
+      totalCount,
+      latestScore: recentHistory[0]?.score ?? null,
+      recentHistory,
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch my progress' })
   }
 })
 

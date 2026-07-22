@@ -8,6 +8,7 @@ import RulesInput from './components/RulesInput'
 import RubricApproval from './components/RubricApproval'
 import StaffInvite from './components/StaffInvite'
 import ScenarioSelect from './components/ScenarioSelect'
+import MyProgress from './components/MyProgress'
 import TrainingSession from './components/TrainingSession'
 import FeedbackReport from './components/FeedbackReport'
 import TurnCalibrationReview from './components/TurnCalibrationReview'
@@ -371,6 +372,11 @@ function App() {
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
       />
+    )
+  }
+  if (effectiveScreen === 'myProgress') {
+    return (
+      <MyProgress onNavigate={handleNavigate} onChangePassword={() => setScreen('changePassword')} onLogout={handleLogout} />
     )
   }
   if (effectiveScreen === 'training') {

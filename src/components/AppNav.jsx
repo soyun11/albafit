@@ -7,7 +7,10 @@ const OWNER_LINKS = [
   { key: 'invite', label: '알바 관리' },
 ]
 
-const STAFF_LINKS = [{ key: 'scenario', label: '시나리오 선택' }]
+const STAFF_LINKS = [
+  { key: 'scenario', label: '시나리오 선택' },
+  { key: 'myProgress', label: '내 현황' },
+]
 
 // 로그인 전(체험하기 등)에는 owner/staff 링크 대신 로그인·회원가입 버튼만 보여준다.
 const LINK_SETS = { owner: OWNER_LINKS, staff: STAFF_LINKS }
