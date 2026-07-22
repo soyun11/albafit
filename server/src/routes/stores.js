@@ -510,6 +510,7 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
       return {
         id: user.id,
         name: user.name,
+        email: user.email,
         progress: totalScenarioTypes > 0 ? Math.round((completedTypes.size / totalScenarioTypes) * 100) : 0,
         done: `${completedTypes.size}/${totalScenarioTypes}`,
         score: score === null ? '—' : `${score}점`,
@@ -731,6 +732,35 @@ router.post('/me/staff', requireAuth, requireRole('owner'), async (req, res) => 
     }
     console.error(err)
     return res.status(500).json({ error: 'failed to create staff account' })
+  }
+})
+
+// ============================================================
+// 알바 비밀번호 재설정 — PATCH /api/stores/me/staff/:staffId/password (사장님 전용)
+// 알바 계정은 사장님이 직접 이메일+초기 비밀번호를 정해서 만드는 구조라(본인 이메일 인증 없음),
+// 잊어버렸을 때 복구도 같은 신뢰 모델(사장님이 새 비밀번호를 직접 정함)을 그대로 따른다.
+// 본인 확인(현재 비밀번호) 없이 덮어쓴다 — /me/staff-report의 소유권 확인과 같은 패턴.
+// (docs/staff-account-recovery.md 참고)
+// ============================================================
+router.patch('/me/staff/:staffId/password', requireAuth, requireRole('owner'), async (req, res) => {
+  const { newPassword } = req.body ?? {}
+
+  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+    return res.status(400).json({ error: 'newPassword must be at least 8 characters' })
+  }
+
+  try {
+    const staffUser = await prisma.user.findUnique({ where: { id: req.params.staffId } })
+    if (!staffUser || staffUser.storeId !== req.user.storeId || staffUser.role !== 'staff') {
+      return res.status(404).json({ error: 'staff not found' })
+    }
+
+    const passwordHash = await hashPassword(newPassword)
+    await prisma.user.update({ where: { id: staffUser.id }, data: { passwordHash } })
+    return res.json({ id: staffUser.id })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to reset staff password' })
   }
 })
 
