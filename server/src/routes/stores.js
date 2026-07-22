@@ -8,9 +8,11 @@ import { findReuseCandidateBatches, findBestReuseCandidate } from '../lib/rubric
 import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
-import { pickFinalAttempts, computeHearts } from '../lib/sessionTurns.js'
+import { pickFinalAttempts, computeHearts, buildSessionReportPayload } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { sessionsCountingAsCurrent } from '../lib/sessionLifecycle.js'
+import { buildCorrectionHistory, buildSessionOverview } from '../lib/evaluationCalibration.js'
+import { buildRecentTrainingHistory } from '../lib/myProgress.js'
 
 // Router() — express 앱 전체가 아니라 "이 파일 안에서만 쓰는 미니 라우터" 하나를 만듦.
 // index.js에서 app.use('/api/stores', storesRouter)로 붙이면, 여기 정의된 '/'는 실제로 '/api/stores'가 됨.
@@ -508,6 +510,7 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
       return {
         id: user.id,
         name: user.name,
+        email: user.email,
         progress: totalScenarioTypes > 0 ? Math.round((completedTypes.size / totalScenarioTypes) * 100) : 0,
         done: `${completedTypes.size}/${totalScenarioTypes}`,
         score: score === null ? '—' : `${score}점`,
@@ -578,48 +581,106 @@ router.get('/me/staff/:staffId/latest-report', requireAuth, requireRole('owner')
       return res.status(404).json({ error: 'this staff has no completed training yet' })
     }
 
-    // 체크리스트는 "지금 승인돼있는 최신 루브릭"이 아니라, 그 세션 turn마다 실제로 채점됐던
-    // 기준(evaluation.metItems)에서 그대로 뽑는다. "기준 재설정"으로 루브릭 문구가 그 뒤에 바뀌면
-    // 지금 루브릭과 그때 평가 기록의 item 문구가 안 맞아서 전부 미충족으로 잘못 보일 수 있다 —
-    // 리포트는 항상 "그 순간 실제로 무엇을 기준으로 채점됐는지"를 보여줘야 한다.
-    // 여러 턴에 걸쳐 한 번이라도 충족했으면 그 기준은 "충족"으로 본다 — 실시간 훈련 화면
-    // (TrainingSession.jsx)이 체크리스트를 누적해서 보여주는 것과 같은 규칙.
-    const allLabels = new Set()
-    const metLabels = new Set()
-    for (const turn of pickFinalAttempts(session.sessionTurns)) {
-      for (const item of turn.evaluation?.metItems ?? []) {
-        allLabels.add(item.item)
-        if (item.met) metLabels.add(item.item)
-      }
-    }
-
-    const checklist = [...allLabels].map((label) => ({
-      label,
-      status: metLabels.has(label) ? 'ok' : 'wait',
-    }))
-
-    // 점수는 목록(/me/staff-report)과 같은 기준(하트 잔량 비율)으로 맞춘다 — computeHearts에 넘기는
-    // sessionTurns가 같으니 자동으로 목록 점수와 일치한다.
-    const { maxHearts, heartsRemaining } = computeHearts(session.sessionTurns)
-
-    // "총 훈련 시간"·업종 태그도 예전엔 고정 문구("18분", "카페 · 디저트 기준")였던 걸 실제 값으로 채운다.
-    const durationMinutes = session.completedAt
-      ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
-      : null
+    // 체크리스트·점수·소요시간 계산은 특정 세션이 "이 알바 최신 세션으로 찾아졌든"
+    // "/api/sessions/:id/report처럼 세션id로 직접 찾아졌든" 항상 같은 규칙을 써야 한다 —
+    // buildSessionReportPayload(sessionTurns.js)로 뽑아서 둘이 갈라지지 않게 한다.
     const store = await prisma.store.findUnique({ where: { id: req.user.storeId } })
 
-    return res.json({
-      checklist,
-      scenarioTitle: session.scenario.title,
-      staffName: staffUser.name,
-      durationMinutes,
-      industry: store?.industry ?? null,
-      heartsRemaining,
-      maxHearts,
-    })
+    return res.json(
+      buildSessionReportPayload({ session, staffName: staffUser.name, industry: store?.industry ?? null }),
+    )
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch staff report' })
+  }
+})
+
+// ============================================================
+// 전체 훈련 세션 목록 — GET /api/stores/me/sessions (사장님 전용)
+// 알바별로 "가장 최근 세션 1개"만 볼 수 있던 것과 달리, 매장에서 완료된 세션 전부를 나열해서
+// 원하는 세션을 골라 리포트→AI 채점 검토로 들어갈 수 있게 한다 (docs/session-review.md).
+// ============================================================
+router.get('/me/sessions', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const sessions = await prisma.trainingSession.findMany({
+      where: { storeId: req.user.storeId, status: 'completed' },
+      include: { scenario: true, staff: true, sessionTurns: true },
+      orderBy: { completedAt: 'desc' },
+    })
+    return res.json({ sessions: buildSessionOverview(sessions) })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to list sessions' })
+  }
+})
+
+// ============================================================
+// 정정 이력 모아보기 — GET /api/stores/me/corrections (사장님 전용)
+// 사장님이 평가 캘리브레이션 화면에서 남긴 교정만 매장 전체에서 모아 최근순으로 보여준다
+// (docs/evaluation-calibration.md — 코멘트만 쌓이고 아무도 안 보는 걸 막기 위해 추가).
+// ============================================================
+router.get('/me/corrections', requireAuth, requireRole('owner'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const turns = await prisma.sessionTurn.findMany({
+      where: { session: { storeId: req.user.storeId } },
+      include: { session: { include: { staff: true, scenario: true } } },
+    })
+
+    return res.json({ corrections: buildCorrectionHistory(turns) })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch correction history' })
+  }
+})
+
+// ============================================================
+// 내 훈련 현황 — GET /api/stores/me/my-progress (알바 전용)
+// /me/staff-report(사장님이 여러 알바를 집계)와 같은 계산 방식(최신 배치 시나리오 수 기준 완료율,
+// computeHearts 기반 점수)을 알바 본인 1명 기준으로 단순화해서 재사용한다 — 그래야 알바가 보는
+// 자기 점수와 사장님이 보는 점수가 항상 일치한다 (docs/staff-my-progress.md 참고).
+// ============================================================
+router.get('/me/my-progress', requireAuth, requireRole('staff'), async (req, res) => {
+  if (!req.user.storeId) {
+    return res.status(400).json({ error: 'no store linked to this account' })
+  }
+
+  try {
+    const latestStoreRuleId = await getLatestStoreRuleId(req.user.storeId)
+
+    const [me, scenarios, sessions] = await Promise.all([
+      prisma.user.findUnique({ where: { id: req.user.id } }),
+      prisma.scenario.findMany({ where: { storeId: req.user.storeId, storeRuleId: latestStoreRuleId } }),
+      prisma.trainingSession.findMany({
+        where: { storeId: req.user.storeId, staffId: req.user.id },
+        include: { scenario: true, sessionTurns: true },
+      }),
+    ])
+
+    const totalCount = scenarios.length
+    const currentScenarioIds = new Set(scenarios.map((s) => s.id))
+    const completed = sessions.filter((s) => s.status === 'completed')
+    const completedTypes = new Set(completed.filter((s) => currentScenarioIds.has(s.scenarioId)).map((s) => s.scenarioId))
+
+    const recentHistory = buildRecentTrainingHistory(completed)
+
+    return res.json({
+      staffName: me?.name ?? null,
+      completedCount: completedTypes.size,
+      totalCount,
+      latestScore: recentHistory[0]?.score ?? null,
+      recentHistory,
+    })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch my progress' })
   }
 })
 
@@ -662,6 +723,47 @@ router.post('/me/staff', requireAuth, requireRole('owner'), async (req, res) => 
     }
     console.error(err)
     return res.status(500).json({ error: 'failed to create staff account' })
+  }
+})
+
+// ============================================================
+// 알바 계정 정보 수정 — PATCH /api/stores/me/staff/:staffId (사장님 전용)
+// 알바 계정은 사장님이 직접 이메일+초기 비밀번호를 정해서 만드는 구조라(본인 이메일 인증 없음),
+// 잊어버렸을 때 복구도 같은 신뢰 모델(사장님이 새 값을 직접 정함)을 그대로 따른다.
+// email/newPassword 둘 다 선택적 — 비밀번호는 본인 확인 없이 덮어쓴다.
+// 소유권 확인은 /me/staff-report와 같은 패턴. (docs/staff-account-recovery.md 참고)
+// ============================================================
+router.patch('/me/staff/:staffId', requireAuth, requireRole('owner'), async (req, res) => {
+  const { email, newPassword } = req.body ?? {}
+
+  if (email === undefined && newPassword === undefined) {
+    return res.status(400).json({ error: 'email or newPassword is required' })
+  }
+  if (email !== undefined && (typeof email !== 'string' || email.trim().length === 0 || email.length > 255)) {
+    return res.status(400).json({ error: 'email is required' })
+  }
+  if (newPassword !== undefined && (typeof newPassword !== 'string' || newPassword.length < 8)) {
+    return res.status(400).json({ error: 'newPassword must be at least 8 characters' })
+  }
+
+  try {
+    const staffUser = await prisma.user.findUnique({ where: { id: req.params.staffId } })
+    if (!staffUser || staffUser.storeId !== req.user.storeId || staffUser.role !== 'staff') {
+      return res.status(404).json({ error: 'staff not found' })
+    }
+
+    const data = {}
+    if (email !== undefined) data.email = email.trim()
+    if (newPassword !== undefined) data.passwordHash = await hashPassword(newPassword)
+
+    const updated = await prisma.user.update({ where: { id: staffUser.id }, data })
+    return res.json({ id: updated.id, email: updated.email, name: updated.name })
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'email already in use' })
+    }
+    console.error(err)
+    return res.status(500).json({ error: 'failed to update staff account' })
   }
 })
 

@@ -52,8 +52,33 @@
 .app-nav-link:disabled:hover {
   color: var(--color-text-secondary);
 }
+.app-nav-link-hint {
+  display: block;
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin-top: 2px;
+}
 .app-nav-right {
   display: flex;
   align-items: center;
   gap: 18px;
+}
+
+@media (max-width: 700px) {
+  .app-nav {
+    flex-wrap: wrap;
+    row-gap: 10px;
+    padding: 14px 5%;
+  }
+  .app-nav-left {
+    gap: 16px;
+  }
+  .app-nav-links {
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .app-nav-right {
+    gap: 10px;
+  }
 }

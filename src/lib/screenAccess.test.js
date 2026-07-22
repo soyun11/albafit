@@ -12,10 +12,34 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('dashboard', null)).toBe(false)
   })
 
+  it('평가 캘리브레이션 화면(calibration)은 사장님 전용이다 — 알바 성적 교정 기능이라 알바에게 노출되면 안 된다', () => {
+    expect(isScreenAllowed('calibration', owner)).toBe(true)
+    expect(isScreenAllowed('calibration', staff)).toBe(false)
+    expect(isScreenAllowed('calibration', null)).toBe(false)
+  })
+
+  it('정정 이력 모아보기 화면(correctionHistory)도 사장님 전용이다', () => {
+    expect(isScreenAllowed('correctionHistory', owner)).toBe(true)
+    expect(isScreenAllowed('correctionHistory', staff)).toBe(false)
+    expect(isScreenAllowed('correctionHistory', null)).toBe(false)
+  })
+
+  it('전체 세션 목록(sessionReview)도 사장님 전용이다', () => {
+    expect(isScreenAllowed('sessionReview', owner)).toBe(true)
+    expect(isScreenAllowed('sessionReview', staff)).toBe(false)
+    expect(isScreenAllowed('sessionReview', null)).toBe(false)
+  })
+
   it('알바 전용 화면은 staff만 허용한다', () => {
     expect(isScreenAllowed('training', staff)).toBe(true)
     expect(isScreenAllowed('training', owner)).toBe(false)
     expect(isScreenAllowed('training', null)).toBe(false)
+  })
+
+  it('내 훈련 현황 화면(myProgress)도 알바 전용이다', () => {
+    expect(isScreenAllowed('myProgress', staff)).toBe(true)
+    expect(isScreenAllowed('myProgress', owner)).toBe(false)
+    expect(isScreenAllowed('myProgress', null)).toBe(false)
   })
 
   it('로그인만 하면 되는 공용 화면(changePassword, feedback)은 역할 무관 허용, 비로그인은 차단한다', () => {
@@ -28,11 +52,15 @@ describe('isScreenAllowed', () => {
     expect(isScreenAllowed('feedback', null)).toBe(false)
   })
 
-  it('완전 공용 화면(landing, login 등)은 로그인 여부·역할과 무관하게 항상 허용한다', () => {
-    expect(isScreenAllowed('landing', null)).toBe(true)
-    expect(isScreenAllowed('landing', owner)).toBe(true)
+  it('완전 공용 화면(login, guestTry 등)은 로그인 여부·역할과 무관하게 항상 허용한다', () => {
     expect(isScreenAllowed('login', null)).toBe(true)
     expect(isScreenAllowed('guestTry', staff)).toBe(true)
+  })
+
+  it('마케팅 랜딩(landing)은 비로그인일 때만 허용한다 — 로그인 상태면 각자의 진짜 홈으로 대체돼야 한다', () => {
+    expect(isScreenAllowed('landing', null)).toBe(true)
+    expect(isScreenAllowed('landing', owner)).toBe(false)
+    expect(isScreenAllowed('landing', staff)).toBe(false)
   })
 })
 

@@ -178,7 +178,7 @@ function RulesInput({
         method: 'POST',
         body: { rawText, items },
       })
-      onNext(data.rubrics)
+      onNext(data.rubrics, { rawText, items })
     } catch (err) {
       setError(err.message)
     } finally {

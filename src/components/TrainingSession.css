@@ -1,6 +1,6 @@
 .session-page {
   min-height: 100vh;
-  padding: 24px 6% 60px;
+  padding-bottom: 60px;
   font-family: var(--font-family-base);
   color: var(--color-text-body);
   background:
@@ -28,6 +28,7 @@
 }.session-page .session-wrap {
   max-width: 960px;
   margin: 0 auto;
+  padding: 24px 6% 0;
 }.session-page .progress-row {
   display: flex;
   align-items: center;

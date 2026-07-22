@@ -24,3 +24,4 @@
 
 ### AI
 - [두 에이전트 요청 흐름](./ai/two-agent-flow.md)
+- [이 프로젝트로 배운 AI 에이전트 엔지니어링 감각](./ai/agent-engineer-takeaways.md)

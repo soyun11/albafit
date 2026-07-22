@@ -65,3 +65,51 @@ export function computeHearts(sessionTurns) {
   const heartsLost = countOffTopicAttempts(sessionTurns)
   return { maxHearts, heartsRemaining: Math.max(0, maxHearts - heartsLost) }
 }
+
+// buildSessionReportPayload(전체 체크리스트)와 buildSessionSummary(목록용 요약 숫자) 둘 다 같은
+// "라벨 집계 + 하트 계산"이 필요해서 한 곳에 모아둔다 — 점수 계산 규칙(하트 잔량 비율)이 두 곳에서
+// 갈리면 목록에서 본 점수와 리포트에서 본 점수가 달라 보이는 문제가 생긴다.
+function summarizeSessionTurns(sessionTurns) {
+  const allLabels = new Set()
+  const metLabels = new Set()
+  for (const turn of pickFinalAttempts(sessionTurns)) {
+    for (const item of turn.evaluation?.metItems ?? []) {
+      allLabels.add(item.item)
+      if (item.met) metLabels.add(item.item)
+    }
+  }
+  const { maxHearts, heartsRemaining } = computeHearts(sessionTurns)
+  const score = maxHearts > 0 ? Math.round((heartsRemaining / maxHearts) * 100) : null
+  return { allLabels, metLabels, maxHearts, heartsRemaining, score }
+}
+
+// 리포트 화면(FeedbackReport.jsx)이 그리는 데이터 그대로 만든다. staffName/industry는 세션이
+// "이 알바의 최신 세션"으로 찾아졌는지("/me/staff/:staffId/latest-report") 아니면 세션id로 직접
+// 찾아졌는지("/api/sessions/:id/report")에 따라 호출부가 미리 다르게 알아내서 넘긴다 — 이 함수는
+// 그 차이를 몰라도 되게 순수 계산만 한다.
+// @param {{ session: {id, startedAt, completedAt, scenario: {title}, sessionTurns: Array}, staffName: string, industry: string|null }} params
+export function buildSessionReportPayload({ session, staffName, industry }) {
+  const { allLabels, metLabels, maxHearts, heartsRemaining } = summarizeSessionTurns(session.sessionTurns)
+  const checklist = [...allLabels].map((label) => ({ label, status: metLabels.has(label) ? 'ok' : 'wait' }))
+  const durationMinutes = session.completedAt
+    ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
+    : null
+
+  return {
+    sessionId: session.id,
+    checklist,
+    scenarioTitle: session.scenario.title,
+    staffName,
+    durationMinutes,
+    industry,
+    heartsRemaining,
+    maxHearts,
+  }
+}
+
+// "채점 검토" 목록(SessionReview.jsx)이 세션마다 보여줄 요약 숫자 — 전체 체크리스트는 필요 없고
+// 개수·점수만 있으면 된다. 기준을 하나도 안 쓴 세션(maxHearts 0)은 점수를 매길 수 없어 null.
+export function buildSessionSummary(sessionTurns) {
+  const { allLabels, metLabels, score } = summarizeSessionTurns(sessionTurns)
+  return { passedCount: metLabels.size, totalCount: allLabels.size, score }
+}

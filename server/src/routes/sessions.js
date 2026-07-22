@@ -1,10 +1,12 @@
 import { Router } from 'express'
 import prisma from '../lib/prisma.js'
-import { requireAuth } from '../middleware/requireAuth.js'
+import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
-import { pickFinalAttempts, buildConversationHistory, computeHearts } from '../lib/sessionTurns.js'
+import { runCrossCheck } from '../lib/evaluatorCrossCheck.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
+import { findOwnedTurn, applyOwnerCorrection, buildTurnCalibrationView } from '../lib/evaluationCalibration.js'
 
 const router = Router()
 
@@ -146,6 +148,17 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
       },
     })
 
+    // 기능강화② 평가 결과 교차검증(docs/evaluation-cross-check.md) — 응답을 기다리게 하면 안
+    // 되므로 await 없이 fire-and-forget으로 실행하고 실패는 여기서 격리한다. 참고 로그일 뿐
+    // 턴 판정(passed/재입력/하트)에는 전혀 관여하지 않는다.
+    runCrossCheck({
+      turnId: turn.id,
+      criteria: rubric.criteria,
+      customerMessage: effectiveCustomerMessage,
+      staffAnswer,
+      geminiMetItems: evaluation.metItems,
+    }).catch((err) => console.error('[cross-check] failed', err))
+
     // 하트(재입력 예산) — 세션 전체를 통틀어 "새로 충족시킨 기준이 하나도 없었던" 시도 횟수만큼
     // 깎인다. 방금 만든 turn까지 포함해서 계산해야 이번 시도가 하트에 반영된다.
     const { maxHearts, heartsRemaining } = computeHearts([...session.sessionTurns, turn])
@@ -252,6 +265,34 @@ router.post('/:id/abandon', requireAuth, async (req, res) => {
 })
 
 // ============================================================
+// 평가 캘리브레이션 — PATCH /api/sessions/turns/:turnId/calibration (사장님 전용)
+// 사장님이 Gemini 채점(evaluation.metItems)이 틀렸다고 판단한 항목을 직접 교정한다.
+// 원본 AI 판정은 그대로 두고 evaluation.ownerCorrection에 별도로 남긴다
+// (docs/evaluation-calibration.md "결정" 표 참고).
+// ============================================================
+router.patch('/turns/:turnId/calibration', requireAuth, requireRole('owner'), async (req, res) => {
+  const { correctedItems, comment } = req.body ?? {}
+
+  try {
+    const { turn, error } = await findOwnedTurn(req.params.turnId, req.user.storeId)
+    if (error) {
+      return res.status(error.status).json({ error: error.message })
+    }
+
+    const evaluation = applyOwnerCorrection(turn.evaluation, { correctedItems, comment })
+
+    const updated = await prisma.sessionTurn.update({
+      where: { id: turn.id },
+      data: { evaluation },
+    })
+    return res.json(updated)
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to save calibration' })
+  }
+})
+
+// ============================================================
 // 세션 조회 — GET /api/sessions/:id (리포트 화면용)
 // ============================================================
 router.get('/:id', requireAuth, async (req, res) => {
@@ -263,10 +304,40 @@ router.get('/:id', requireAuth, async (req, res) => {
     if (!session || session.storeId !== req.user.storeId) {
       return res.status(404).json({ error: 'session not found' })
     }
-    return res.json(session)
+    // turns — 캘리브레이션 화면(TurnCalibrationReview.jsx)이 바로 그리기 쉬운 평평한 형태.
+    // 기존 session.sessionTurns(원본 Prisma 형태)는 다른 소비자를 위해 그대로 둔다.
+    return res.json({ ...session, turns: buildTurnCalibrationView(session.sessionTurns) })
   } catch (err) {
     console.error(err)
     return res.status(500).json({ error: 'failed to fetch session' })
+  }
+})
+
+// ============================================================
+// 세션 하나의 리포트 데이터 — GET /api/sessions/:id/report (사장님 전용)
+// "채점 검토"(전체 세션 목록, stores.js의 /me/sessions)에서 세션 하나를 골랐을 때, 그 알바의
+// "최신 세션"이 아니라 그 세션 자체의 리포트를 보여주기 위한 용도 — /me/staff/:staffId/latest-report와
+// 같은 계산(buildSessionReportPayload)을 세션id 기준으로 재사용한다.
+// ============================================================
+router.get('/:id/report', requireAuth, requireRole('owner'), async (req, res) => {
+  try {
+    const session = await prisma.trainingSession.findUnique({
+      where: { id: req.params.id },
+      include: { scenario: true, sessionTurns: true, staff: true, store: true },
+    })
+    if (!session || session.storeId !== req.user.storeId) {
+      return res.status(404).json({ error: 'session not found' })
+    }
+    return res.json(
+      buildSessionReportPayload({
+        session,
+        staffName: session.staff?.name ?? session.staffLabel ?? '알 수 없음',
+        industry: session.store?.industry ?? null,
+      }),
+    )
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: 'failed to fetch session report' })
   }
 })
 

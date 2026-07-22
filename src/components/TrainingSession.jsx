@@ -156,6 +156,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   if (loading) {
     return (
       <div className="session-page">
+        <AppNav role="staff" current="training" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
         <div className="session-wrap">
           <p>손님을 준비하고 있어요...</p>
         </div>
@@ -166,6 +167,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   if (startError) {
     return (
       <div className="session-page">
+        <AppNav role="staff" current="training" onNavigate={onNavigate} onChangePassword={onChangePassword} onLogout={onLogout} />
         <div className="session-wrap">
           <p>훈련을 시작하지 못했어요: {startError}</p>
           <button type="button" className="btn-ghost" onClick={() => onNavigate('home')}>

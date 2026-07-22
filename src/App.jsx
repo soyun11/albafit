@@ -8,10 +8,13 @@ import RulesInput from './components/RulesInput'
 import RubricApproval from './components/RubricApproval'
 import StaffInvite from './components/StaffInvite'
 import ScenarioSelect from './components/ScenarioSelect'
+import MyProgress from './components/MyProgress'
 import TrainingSession from './components/TrainingSession'
 import FeedbackReport from './components/FeedbackReport'
+import TurnCalibrationReview from './components/TurnCalibrationReview'
+import CorrectionHistory from './components/CorrectionHistory'
+import SessionReview from './components/SessionReview'
 import OwnerDashboard from './components/OwnerDashboard'
-import ReportList from './components/ReportList'
 import VerifyEmail from './components/VerifyEmail'
 import GuestTry from './components/GuestTry'
 import {
@@ -47,6 +50,10 @@ function App() {
   const [selectedScenario, setSelectedScenario] = useState(null)
   const [trainingResult, setTrainingResult] = useState(null)
   const [reportStaffName, setReportStaffName] = useState(null)
+  const [reportSessionId, setReportSessionId] = useState(null)
+  // 리포트 화면에 사장님이 어디서 들어왔는지('dashboard' 알바 목록 vs 'sessionReview' 전체 세션
+  // 목록) — FeedbackReport의 AppNav가 그 출발 탭을 active로 표시해야 해서 기억해둔다.
+  const [reportOrigin, setReportOrigin] = useState('dashboard')
   // "기준 재설정" 흐름 중인지 — true면 industry/rules/rubricManage 화면이 StepSidebar를 같이 보여주고
   // step을 눌러 자유롭게 오갈 수 있다. resetRawText는 그 흐름의 step2(규칙)를 저장된 원문으로 채우는 값,
   // resetItems는 카드별 원래 라벨을 그대로 복원하기 위한 값(과거 데이터엔 없어서 null일 수 있음).
@@ -149,9 +156,16 @@ function App() {
     setScreen('rules')
   }
 
-  // 재설정 흐름의 STEP1 "다음" — 매장은 이미 있으니 새로 만들지 않고, 새로 적은 매뉴얼만 분리해서
-  // step2에 저장된 규칙과 함께 보여준다.
-  async function handleResetIndustryNext(_industryKey, text) {
+  // 재설정 흐름의 STEP1 "다음" — 매장은 이미 있으니 새로 만들지 않는다.
+  // replaceExisting은 IndustrySelect의 매뉴얼 입력칸을 사용자가 직접 "수정하기"로 고쳤을 때만 true —
+  // 그때는 이 칸 내용이 새 원문 전체를 대체하므로 예전 resetRawText/resetItems를 지워서, step2가
+  // 예전 저장 카드를 이 칸에서 새로 쪼갠 카드와 나란히 중복해서 보여주지 않게 한다. 안 건드렸으면
+  // (replaceExisting=false, text='') 예전 값 그대로 두고 아무 카드도 새로 안 만든다.
+  async function handleResetIndustryNext(_industryKey, text, replaceExisting) {
+    if (replaceExisting) {
+      setResetRawText('')
+      setResetItems(null)
+    }
     await splitAndSetManualRules(text)
     setScreen('rules')
   }
@@ -171,6 +185,7 @@ function App() {
       maxHearts,
     })
     setReportStaffName(null)
+    setReportSessionId(null)
     setScreen('feedback')
   }
 
@@ -188,6 +203,30 @@ function App() {
         maxHearts: data.maxHearts,
       })
       setReportStaffName(data.staffName)
+      setReportSessionId(data.sessionId)
+      setReportOrigin('dashboard')
+      setScreen('feedback')
+    } catch (err) {
+      alert(err.message)
+    }
+  }
+
+  // "채점 검토"(전체 세션 목록)에서 세션 하나를 골랐을 때 — handleViewReport와 달리 그 알바의
+  // "최신 세션"이 아니라 고른 세션 그 자체의 리포트를 불러온다.
+  async function handleViewSessionReport(sessionId) {
+    try {
+      const data = await apiFetch(`/api/sessions/${sessionId}/report`)
+      setTrainingResult({
+        checklist: data.checklist,
+        scenarioTag: data.scenarioTitle,
+        durationMinutes: data.durationMinutes,
+        industry: data.industry,
+        heartsRemaining: data.heartsRemaining,
+        maxHearts: data.maxHearts,
+      })
+      setReportStaffName(data.staffName)
+      setReportSessionId(data.sessionId)
+      setReportOrigin('sessionReview')
       setScreen('feedback')
     } catch (err) {
       alert(err.message)
@@ -260,7 +299,15 @@ function App() {
     return <Signup onHome={goHome} onLogin={() => setScreen('login')} onSignupSuccess={handleSignupSuccess} />
   }
   if (effectiveScreen === 'changePassword') {
-    return <ChangePassword onHome={goHome} onBack={() => setScreen(landingScreenFor(user))} />
+    return (
+      <ChangePassword
+        onBack={() => setScreen(landingScreenFor(user))}
+        role={user?.role}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
   }
 
   if (effectiveScreen === 'industry') {
@@ -274,6 +321,7 @@ function App() {
         onLogout={handleLogout}
         resetMode={resetMode}
         user={user}
+        initialManualText={resetRawText}
       />
     )
   }
@@ -281,8 +329,15 @@ function App() {
     return (
       <RulesInput
         onBack={() => setScreen('industry')}
-        onNext={(newRubrics) => {
+        onNext={(newRubrics, saved) => {
           setRubrics(newRubrics)
+          // 방금 확정·저장한 내용을 반영해둔다 — 안 그러면 StepSidebar로 STEP1/2에 다시
+          // 돌아왔을 때 "지금 저장된 규칙" 참고 블록·SAVED 카드가 이번 제출 이전의 옛 값을
+          // 계속 보여준다.
+          if (saved) {
+            setResetRawText(saved.rawText)
+            setResetItems(saved.items)
+          }
           setScreen(resetMode ? 'rubricManage' : 'rubric')
         }}
         onStepClick={resetMode ? handleResetStepClick : undefined}
@@ -340,16 +395,6 @@ function App() {
       />
     )
   }
-  if (effectiveScreen === 'reports') {
-    return (
-      <ReportList
-        onNavigate={handleNavigate}
-        onChangePassword={() => setScreen('changePassword')}
-        onLogout={handleLogout}
-        onViewReport={handleViewReport}
-      />
-    )
-  }
   if (effectiveScreen === 'scenario') {
     return (
       <ScenarioSelect
@@ -358,6 +403,11 @@ function App() {
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
       />
+    )
+  }
+  if (effectiveScreen === 'myProgress') {
+    return (
+      <MyProgress onNavigate={handleNavigate} onChangePassword={() => setScreen('changePassword')} onLogout={handleLogout} />
     )
   }
   if (effectiveScreen === 'training') {
@@ -375,7 +425,6 @@ function App() {
   if (effectiveScreen === 'feedback') {
     return (
       <FeedbackReport
-        onHome={goHome}
         onRetry={() => setScreen('scenario')}
         checklist={trainingResult?.checklist}
         scenarioTag={trainingResult?.scenarioTag}
@@ -384,6 +433,43 @@ function App() {
         heartsRemaining={trainingResult?.heartsRemaining}
         maxHearts={trainingResult?.maxHearts}
         staffName={reportStaffName ?? '나'}
+        onCalibrate={reportStaffName ? () => setScreen('calibration') : undefined}
+        reportOrigin={reportOrigin}
+        role={user?.role}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
+  }
+  if (effectiveScreen === 'calibration') {
+    return (
+      <TurnCalibrationReview
+        sessionId={reportSessionId}
+        staffName={reportStaffName}
+        onBack={() => setScreen('feedback')}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
+  }
+  if (effectiveScreen === 'correctionHistory') {
+    return (
+      <CorrectionHistory
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
+      />
+    )
+  }
+  if (effectiveScreen === 'sessionReview') {
+    return (
+      <SessionReview
+        onViewReport={handleViewSessionReport}
+        onNavigate={handleNavigate}
+        onChangePassword={() => setScreen('changePassword')}
+        onLogout={handleLogout}
       />
     )
   }
@@ -393,6 +479,7 @@ function App() {
         onNavigate={handleNavigate}
         onChangePassword={() => setScreen('changePassword')}
         onLogout={handleLogout}
+        onViewReport={handleViewReport}
         user={user}
       />
     )

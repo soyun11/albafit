@@ -1,13 +1,18 @@
 import './AppNav.css'
 
+// 알바 목록·초대는 전부 대시보드로 통합돼서(docs/dashboard-staff-consolidation.md) 별도 nav
+// 링크가 아니라 대시보드 화면 안에서 들어가는 하위 화면이다.
 const OWNER_LINKS = [
   { key: 'dashboard', label: '대시보드' },
   { key: 'rubricManage', label: '기준 관리' },
-  { key: 'reports', label: '리포트' },
-  { key: 'invite', label: '알바 관리' },
+  { key: 'sessionReview', label: '채점 검토' },
+  { key: 'correctionHistory', label: '채점 검토 이력' },
 ]
 
-const STAFF_LINKS = [{ key: 'scenario', label: '시나리오 선택' }]
+const STAFF_LINKS = [
+  { key: 'scenario', label: '시나리오 선택' },
+  { key: 'myProgress', label: '내 현황' },
+]
 
 // 로그인 전(체험하기 등)에는 owner/staff 링크 대신 로그인·회원가입 버튼만 보여준다.
 const LINK_SETS = { owner: OWNER_LINKS, staff: STAFF_LINKS }
@@ -38,9 +43,12 @@ function AppNav({ role, current, onNavigate, onChangePassword, onLogout, childre
                 className={`app-nav-link ${current === link.key ? 'active' : ''}`}
                 onClick={() => onNavigate(link.key)}
                 disabled={isDisabled}
-                title={isDisabled ? '매장 설정을 마치면 이용할 수 있어요' : undefined}
+                aria-current={current === link.key ? 'page' : undefined}
               >
                 {link.label}
+                {/* title 툴팁은 마우스 호버에만 반응해 모바일(터치)에서는 안 보인다 — 항상 보이는
+                    캡션으로 대체한다. */}
+                {isDisabled && <span className="app-nav-link-hint">매장 설정을 마치면 이용할 수 있어요</span>}
               </button>
             )
           })}
