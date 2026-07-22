@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import './OwnerDashboard.css'
 import mascotCoach from '../../img/mascot-coach.png'
 import EmailVerifyBanner from './EmailVerifyBanner'
 import AppNav from './AppNav'
+import StaffEditModal from './StaffEditModal'
 import { apiFetch } from '../lib/api'
 
 // IndustrySelect.jsx의 업종 목록과 동일한 아이콘·라벨 — 대시보드 상단 태그가 실제 매장 업종을 보여주게.
@@ -31,13 +32,9 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
   const [staff, setStaff] = useState(null)
   const [error, setError] = useState('')
 
-  // 비밀번호 재설정 — 사장님이 알바 계정 정보(이메일/비번)를 잃어버렸을 때 복구할 방법이 없던
-  // 문제를 메우는 인라인 폼 (docs/staff-account-recovery.md). resetTarget이 펼쳐진 행의 staffId.
-  const [resetTarget, setResetTarget] = useState(null)
-  const [newPassword, setNewPassword] = useState('')
-  const [resetSaving, setResetSaving] = useState(false)
-  const [resetError, setResetError] = useState('')
-  const [resetDoneId, setResetDoneId] = useState(null)
+  // 계정 수정(이메일·비밀번호) — 사장님이 알바 계정 정보를 잃어버렸을 때 복구할 방법이 없던 문제를
+  // 메우는 모달 (docs/staff-account-recovery.md). editTarget이 모달을 연 알바 member 객체.
+  const [editTarget, setEditTarget] = useState(null)
 
   useEffect(() => {
     apiFetch('/api/stores/me/staff-report')
@@ -49,33 +46,9 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
       .catch((err) => setError(err.message))
   }, [])
 
-  function toggleResetForm(staffId) {
-    setResetTarget((prev) => (prev === staffId ? null : staffId))
-    setNewPassword('')
-    setResetError('')
-  }
-
-  async function handleResetPassword(staffId) {
-    setResetError('')
-    if (newPassword.length < 8) {
-      setResetError('새 비밀번호는 8자 이상으로 만들어주세요.')
-      return
-    }
-    setResetSaving(true)
-    try {
-      await apiFetch(`/api/stores/me/staff/${staffId}/password`, {
-        method: 'PATCH',
-        body: { newPassword },
-      })
-      setResetTarget(null)
-      setNewPassword('')
-      setResetDoneId(staffId)
-      setTimeout(() => setResetDoneId(null), 2000)
-    } catch (err) {
-      setResetError(err.message)
-    } finally {
-      setResetSaving(false)
-    }
+  function handleStaffSaved(updated) {
+    setStaff((prev) => prev.map((member) => (member.id === updated.id ? { ...member, email: updated.email } : member)))
+    setEditTarget(null)
   }
 
   return (
@@ -132,71 +105,43 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
               </thead>
               <tbody>
                 {staff.map((member) => (
-                  <Fragment key={member.id}>
-                    <tr
-                      className={member.status === 'pending' ? 'no-click' : ''}
-                      onClick={() => member.status !== 'pending' && onViewReport(member)}
-                    >
-                      <td>
-                        <div className="name-cell">
-                          <div className="avatar-initial">{member.name.slice(0, 2)}</div>
-                          <div>
-                            <div>{member.name}</div>
-                            <div className="staff-email">{member.email}</div>
-                          </div>
+                  <tr
+                    key={member.id}
+                    className={member.status === 'pending' ? 'no-click' : ''}
+                    onClick={() => member.status !== 'pending' && onViewReport(member)}
+                  >
+                    <td>
+                      <div className="name-cell">
+                        <div className="avatar-initial">{member.name.slice(0, 2)}</div>
+                        <div>
+                          <div>{member.name}</div>
+                          <div className="staff-email">{member.email}</div>
                         </div>
-                      </td>
-                      <td>
-                        <span className="progress-mini">
-                          <span className="progress-mini-fill" style={{ width: `${member.progress}%` }} />
-                        </span>
-                        {member.done}
-                      </td>
-                      <td className="score-cell">{member.score}</td>
-                      <td>
-                        <span className={`status-chip ${member.status}`}>{STATUS_LABEL[member.status]}</span>
-                      </td>
-                      <td>
-                        <button
-                          type="button"
-                          className="link-inline"
-                          onClick={(event) => {
-                            event.stopPropagation()
-                            toggleResetForm(member.id)
-                          }}
-                        >
-                          {resetDoneId === member.id ? '변경 완료' : '비밀번호 재설정'}
-                        </button>
-                      </td>
-                    </tr>
-                    {resetTarget === member.id && (
-                      <tr className="reset-password-row">
-                        <td colSpan={5}>
-                          <div className="reset-password-form">
-                            <input
-                              type="text"
-                              value={newPassword}
-                              onChange={(event) => setNewPassword(event.target.value)}
-                              placeholder="새 비밀번호 (8자 이상)"
-                              onClick={(event) => event.stopPropagation()}
-                            />
-                            <button
-                              type="button"
-                              className="btn-primary-sm"
-                              onClick={(event) => {
-                                event.stopPropagation()
-                                handleResetPassword(member.id)
-                              }}
-                              disabled={resetSaving}
-                            >
-                              {resetSaving ? '저장 중...' : '저장'}
-                            </button>
-                            {resetError && <span className="dashboard-error">{resetError}</span>}
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </Fragment>
+                      </div>
+                    </td>
+                    <td>
+                      <span className="progress-mini">
+                        <span className="progress-mini-fill" style={{ width: `${member.progress}%` }} />
+                      </span>
+                      {member.done}
+                    </td>
+                    <td className="score-cell">{member.score}</td>
+                    <td>
+                      <span className={`status-chip ${member.status}`}>{STATUS_LABEL[member.status]}</span>
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="link-inline"
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setEditTarget(member)
+                        }}
+                      >
+                        계정 수정
+                      </button>
+                    </td>
+                  </tr>
                 ))}
                 {/* 알바 초대는 별도 버튼이 아니라 목록의 자연스러운 다음 행으로 — 연한 색으로
                     구분해 "언제든 추가할 수 있는 자리"라는 느낌을 준다. */}
@@ -218,6 +163,10 @@ function OwnerDashboard({ onNavigate, onChangePassword, onLogout, onViewReport, 
           </div>
         )}
       </div>
+
+      {editTarget && (
+        <StaffEditModal staff={editTarget} onClose={() => setEditTarget(null)} onSaved={handleStaffSaved} />
+      )}
     </div>
   )
 }

@@ -736,16 +736,22 @@ router.post('/me/staff', requireAuth, requireRole('owner'), async (req, res) => 
 })
 
 // ============================================================
-// 알바 비밀번호 재설정 — PATCH /api/stores/me/staff/:staffId/password (사장님 전용)
+// 알바 계정 정보 수정 — PATCH /api/stores/me/staff/:staffId (사장님 전용)
 // 알바 계정은 사장님이 직접 이메일+초기 비밀번호를 정해서 만드는 구조라(본인 이메일 인증 없음),
-// 잊어버렸을 때 복구도 같은 신뢰 모델(사장님이 새 비밀번호를 직접 정함)을 그대로 따른다.
-// 본인 확인(현재 비밀번호) 없이 덮어쓴다 — /me/staff-report의 소유권 확인과 같은 패턴.
-// (docs/staff-account-recovery.md 참고)
+// 잊어버렸을 때 복구도 같은 신뢰 모델(사장님이 새 값을 직접 정함)을 그대로 따른다.
+// email/newPassword 둘 다 선택적 — 비밀번호는 본인 확인 없이 덮어쓴다.
+// 소유권 확인은 /me/staff-report와 같은 패턴. (docs/staff-account-recovery.md 참고)
 // ============================================================
-router.patch('/me/staff/:staffId/password', requireAuth, requireRole('owner'), async (req, res) => {
-  const { newPassword } = req.body ?? {}
+router.patch('/me/staff/:staffId', requireAuth, requireRole('owner'), async (req, res) => {
+  const { email, newPassword } = req.body ?? {}
 
-  if (typeof newPassword !== 'string' || newPassword.length < 8) {
+  if (email === undefined && newPassword === undefined) {
+    return res.status(400).json({ error: 'email or newPassword is required' })
+  }
+  if (email !== undefined && (typeof email !== 'string' || email.trim().length === 0 || email.length > 255)) {
+    return res.status(400).json({ error: 'email is required' })
+  }
+  if (newPassword !== undefined && (typeof newPassword !== 'string' || newPassword.length < 8)) {
     return res.status(400).json({ error: 'newPassword must be at least 8 characters' })
   }
 
@@ -755,12 +761,18 @@ router.patch('/me/staff/:staffId/password', requireAuth, requireRole('owner'), a
       return res.status(404).json({ error: 'staff not found' })
     }
 
-    const passwordHash = await hashPassword(newPassword)
-    await prisma.user.update({ where: { id: staffUser.id }, data: { passwordHash } })
-    return res.json({ id: staffUser.id })
+    const data = {}
+    if (email !== undefined) data.email = email.trim()
+    if (newPassword !== undefined) data.passwordHash = await hashPassword(newPassword)
+
+    const updated = await prisma.user.update({ where: { id: staffUser.id }, data })
+    return res.json({ id: updated.id, email: updated.email, name: updated.name })
   } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return res.status(409).json({ error: 'email already in use' })
+    }
     console.error(err)
-    return res.status(500).json({ error: 'failed to reset staff password' })
+    return res.status(500).json({ error: 'failed to update staff account' })
   }
 })
 
