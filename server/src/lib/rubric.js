@@ -1,4 +1,5 @@
 import gemini from './gemini.js'
+import { parseAIJson } from './aiJson.js'
 
 // docs/db-schema.md의 rubrics.criteria 컬럼 형식과 맞춘 스키마.
 // responseMimeType + responseSchema로 이 형태를 강제해서, 텍스트로 JSON 흉내내게 하고 파싱하는 것보다 안전하게 받는다.
@@ -56,6 +57,6 @@ ${rawRulesText}
     },
   })
 
-  const parsed = JSON.parse(response.text)
+  const parsed = parseAIJson(response.text)
   return parsed.criteria
 }

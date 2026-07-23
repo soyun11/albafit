@@ -1,4 +1,5 @@
 import gemini from './gemini.js'
+import { parseAIJson } from './aiJson.js'
 
 // 사장님이 자유롭게 적은 매장 매뉴얼 원문을, 규칙 카드 여러 개(제목+내용)로 나누기 위한 스키마.
 // generateRubric과 같은 이유로 JSON 스키마를 강제한다 — 텍스트 파싱보다 안전하게 구조화된 배열을 받는다.
@@ -46,6 +47,6 @@ ${manualText}
     },
   })
 
-  const parsed = JSON.parse(response.text)
+  const parsed = parseAIJson(response.text)
   return parsed.rules
 }

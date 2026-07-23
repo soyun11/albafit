@@ -1,4 +1,5 @@
 import gemini from './gemini.js'
+import { parseAIJson } from './aiJson.js'
 
 // CLAUDE.md의 {충족여부, 빠진기준[], 피드백, 개선문장} 형식과 맞춘 스키마.
 const EVALUATION_SCHEMA = {
@@ -64,7 +65,7 @@ ${criteria.map((c) => `- [${c.required ? '필수' : '선택'}] ${c.item} (좋은
     },
   })
 
-  const parsed = JSON.parse(response.text)
+  const parsed = parseAIJson(response.text)
 
   // Gemini가 met_items[].item에 프롬프트의 "[필수]/[선택] " 표시까지 그대로 echo해서 돌려줄 때가
   // 있다(직접 확인함) — 그러면 아래 missingCriteria가 criteria의 순수 item 텍스트와 정확히 안

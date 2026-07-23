@@ -23,7 +23,7 @@
 #### Day 1 — 프로젝트 셋업 & 배포 대상 만들기
 - [ ] 레포 초기화 (React + Express, 프론트/백엔드 디렉터리 분리)
 - [ ] `.env` 설계·관리 (Anthropic API 키, `DATABASE_URL`, `.env.example` 커밋)
-- [ ] **Railway 프로젝트 생성** — Express 백엔드 호스팅 (plan.md 5-5)
+- [x] ~~Railway 프로젝트 생성~~ — Express 백엔드 호스팅 (plan.md 5-5). **2026-07-22: 계획 변경, Railway 대신 Vercel 서버리스 함수로 백엔드 호스팅** (`docs/deployment.md` 참고, Railway CLI 업로드 버그 + 신규 계정 결제 요구 때문에 전환)
 - [ ] **Supabase 프로젝트 생성** — Postgres DB 호스팅 (2026-07-13 과제 요구사항에 맞춰 Railway Postgres→Supabase로 전환, docs/db-migration-plan.md 참고)
 - [ ] **Vercel 프로젝트 생성 및 GitHub 연결** — 프론트(React)용, push마다 자동 배포되는지 확인
 - [ ] ORM 셋업 — Prisma 권장 (`npx prisma init`), db-schema.md의 스키마를 `schema.prisma`로 옮기기
@@ -140,7 +140,7 @@
 
 ### 7/23 (목) — 안정성 보강 + UI 디테일 + 배포 + 최종 검증
 - [ ] 시나리오 배치 생성 트랜잭션으로 묶기 (`prisma.$transaction`) — *`stores.js`의 `POST /:linkKey/rules`가 `Promise.all`로 여러 개를 만드는데, 중간 실패 시 부분 데이터가 남을 수 있음*
-- [ ] AI 응답 JSON 파싱 방어 (`evaluator.js`/`rubric.js`/`scenarioProposer.js`) — *`responseSchema` 강제해도 100% 보장 아님, "[필수]" 접두어 버그가 그 증거*
+- [x] AI 응답 JSON 파싱 방어 (`evaluator.js`/`rubric.js`/`scenarioProposer.js`) `완료` — *`responseSchema` 강제해도 100% 보장 아님, "[필수]" 접두어 버그가 그 증거*. TDD로 순수 함수 `parseAIJson`(`server/src/lib/aiJson.js`, 코드펜스 방어 포함) 작성 후 위 3개 + `evaluatorCrossCheck.js`/`manualRules.js`까지 5곳 전부 교체. 테스트 6개(RED→GREEN) + `feature-verifier`로 실제 서버·실제 Gemini 호출 경로(`manual-split`)까지 검증 완료. 한계: 코드펜스 앞뒤에 설명 문장이 섞이면 못 벗김(문자열 전체가 펜스인 경우만 처리) — 5곳 다 `responseSchema`/`response_format`으로 이미 강제 중이라 실사용 경로는 아님
 - [ ] AI 호출 재시도 로직 (Gemini/OpenAI 호출 실패 시 1~2회, backoff)
 - [ ] eval 셋을 시나리오 제안·평가(evaluator)에도 확장 — *지금 `server/eval/rubric-eval-set.json`은 루브릭 생성만 커버*
 - [ ] AI 호출 성공/실패·소요시간 로깅 — *지금은 `console.error`뿐이라 실패 패턴을 사후에 알 방법이 없음*
@@ -150,7 +150,7 @@
 - [ ] 빈 답변·네트워크 오류 등 실패 상태 UI
 - [ ] 반응형/모바일 점검 — *알바는 매장 링크를 폰으로 열 가능성이 높음*
 - [ ] 대시보드 알바 목록 등 클릭형 UI 접근성 개선 — *현재 프로토타입은 `<tr onclick>`만 있어 키보드 탐색이 불가능, 포커스 가능한 요소(버튼/링크)로 전환 필요*
-- [ ] Railway(BE)/Supabase(DB)/Vercel(FE) 배포 — *1주차 Day 1에 끝내지 못해 이월, 금요일 발표 전 하루 여유를 두기 위해 목요일에 배치, 안정성 보강 이후에 배포*
+- [x] Vercel(FE+BE)/Supabase(DB) 배포 `완료` — *1주차 Day 1에 끝내지 못해 이월, 원래 이 날(목) 배치였으나 부스 전시 QR 링크가 급해 하루 전(수)에 당겨서 진행. 백엔드는 Railway 대신 Vercel 서버리스 함수로 배포 (`docs/deployment.md` 참고)*
 - [ ] `feature-verifier`로 전체 흐름 최종 검증
 - [ ] PR 정리
 
@@ -174,10 +174,10 @@
 - [ ] 평가 에이전트가 `get_rubric`·`save_session_turn`을 tool call로 쓰도록 교체
 - [ ] 기존 직접 쿼리 방식과 비교해 정상 동작하는지 회귀 확인 (1주차 eval 셋 재사용)
 
-### 배포 (Day 1에 만든 대상에 실제로 올리기)
-- [ ] Express 백엔드 Railway에 배포, 환경변수(`DATABASE_URL`은 Supabase 프로덕션 값, Anthropic API 키) 프로덕션 값으로 설정
-- [ ] React 프론트 Vercel에 배포, 프로덕션 API 주소로 연결
-- [ ] 프로덕션 URL로 실제 접속해서 "규칙 입력 → 훈련 → 리포트" 전체 흐름 한 번 확인 (로컬 아닌 배포본 기준, DB는 Supabase)
+### 배포 (Day 1에 만든 대상에 실제로 올리기) `완료 (2026-07-22, 3주차 수요일로 앞당김)`
+- [x] ~~Express 백엔드 Railway에 배포~~ → **Vercel 서버리스 함수(`api/index.js`)로 배포**, 환경변수(`DATABASE_URL`은 Supabase 프로덕션 값, `OPENAI_API_KEY`/`GEMINI_API_KEY` 등) 프로덕션 값으로 설정 완료 (`docs/deployment.md`)
+- [x] React 프론트 Vercel에 배포 — 백엔드와 같은 프로젝트/도메인이라 `VITE_API_BASE_URL`은 빈 문자열(상대경로)로 설정
+- [x] 프로덕션 URL(`https://hub-ten-virid.vercel.app`, 커스텀 도메인 `albafit.kr` 연결 진행 중)로 실제 접속해서 "체험하기 → 규칙 입력 → AI 루브릭 생성 → AI 손님과 대화 → 실시간 채점" 전체 흐름 브라우저로 직접 확인 (로컬 아닌 배포본 기준, DB는 Supabase)
 
 ### QA & 마감
 - [ ] 전체 흐름 통합 테스트 (사장님 설정 → 알바 훈련 → 결과 확인)
@@ -189,7 +189,7 @@
 - [ ] 규칙·시나리오 초안 자동 생성 (업종 템플릿 → AI 초안), AI 초안 승인/수정 UX 다듬기
 - [ ] **매뉴얼 사진 → 규칙 초안** — 별도 OCR 서비스 없이 **Claude Sonnet 5의 비전 입력**으로 사진을 바로 읽어 규칙 텍스트를 뽑는다 (plan.md 5-3)
 
-**4주차 완료 기준**: Railway(BE)/Vercel(FE)에 배포된 URL로 접속해서 "규칙 입력 → 훈련 → 리포트"가 한 번에 보여지는 완결된 v1 (DB는 Supabase). 데이터 접근은 MCP로 전환되어 있다.
+**4주차 완료 기준**: Vercel(FE+BE)에 배포된 URL로 접속해서 "규칙 입력 → 훈련 → 리포트"가 한 번에 보여지는 완결된 v1 (DB는 Supabase). 배포 자체는 3주차 수요일에 앞당겨 완료(`docs/deployment.md`). 데이터 접근은 MCP로 전환되어 있다.
 
 ---
 

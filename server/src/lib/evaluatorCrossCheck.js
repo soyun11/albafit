@@ -1,4 +1,5 @@
 import openai from './openai.js'
+import { parseAIJson } from './aiJson.js'
 
 // evaluator.js가 겪은 것과 같은 문제(Gemini가 met_items[].item에 "[필수]/[선택] " 접두어를
 // echo해서 돌려줌) — OpenAI도 같은 프롬프트 구조를 받으므로 방어적으로 동일하게 정규화한다.
@@ -83,7 +84,7 @@ export async function crossCheckEvaluateTurn({ criteria, customerMessage, staffA
     response_format: CROSS_CHECK_RESPONSE_FORMAT,
   })
 
-  return JSON.parse(response.choices[0].message.content).met_items
+  return parseAIJson(response.choices[0].message.content).met_items
 }
 
 // 참고 로그일 뿐 판정에 개입하지 않는다 — 불일치가 있으면 나중에 눈에 띄도록 warn으로,
