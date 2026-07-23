@@ -23,7 +23,7 @@
 #### Day 1 — 프로젝트 셋업 & 배포 대상 만들기
 - [ ] 레포 초기화 (React + Express, 프론트/백엔드 디렉터리 분리)
 - [ ] `.env` 설계·관리 (Anthropic API 키, `DATABASE_URL`, `.env.example` 커밋)
-- [ ] **Railway 프로젝트 생성** — Express 백엔드 호스팅 (plan.md 5-5)
+- [x] ~~Railway 프로젝트 생성~~ — Express 백엔드 호스팅 (plan.md 5-5). **2026-07-22: 계획 변경, Railway 대신 Vercel 서버리스 함수로 백엔드 호스팅** (`docs/deployment.md` 참고, Railway CLI 업로드 버그 + 신규 계정 결제 요구 때문에 전환)
 - [ ] **Supabase 프로젝트 생성** — Postgres DB 호스팅 (2026-07-13 과제 요구사항에 맞춰 Railway Postgres→Supabase로 전환, docs/db-migration-plan.md 참고)
 - [ ] **Vercel 프로젝트 생성 및 GitHub 연결** — 프론트(React)용, push마다 자동 배포되는지 확인
 - [ ] ORM 셋업 — Prisma 권장 (`npx prisma init`), db-schema.md의 스키마를 `schema.prisma`로 옮기기
@@ -140,18 +140,18 @@
 
 ### 7/23 (목) — 안정성 보강 + UI 디테일 + 배포 + 최종 검증
 - [ ] 시나리오 배치 생성 트랜잭션으로 묶기 (`prisma.$transaction`) — *`stores.js`의 `POST /:linkKey/rules`가 `Promise.all`로 여러 개를 만드는데, 중간 실패 시 부분 데이터가 남을 수 있음*
-- [ ] AI 응답 JSON 파싱 방어 (`evaluator.js`/`rubric.js`/`scenarioProposer.js`) — *`responseSchema` 강제해도 100% 보장 아님, "[필수]" 접두어 버그가 그 증거*
+- [x] AI 응답 JSON 파싱 방어 (`evaluator.js`/`rubric.js`/`scenarioProposer.js`) `완료` — *`responseSchema` 강제해도 100% 보장 아님, "[필수]" 접두어 버그가 그 증거*. TDD로 순수 함수 `parseAIJson`(`server/src/lib/aiJson.js`, 코드펜스 방어 포함) 작성 후 위 3개 + `evaluatorCrossCheck.js`/`manualRules.js`까지 5곳 전부 교체. 테스트 6개(RED→GREEN) + `feature-verifier`로 실제 서버·실제 Gemini 호출 경로(`manual-split`)까지 검증 완료. 한계: 코드펜스 앞뒤에 설명 문장이 섞이면 못 벗김(문자열 전체가 펜스인 경우만 처리) — 5곳 다 `responseSchema`/`response_format`으로 이미 강제 중이라 실사용 경로는 아님
 - [ ] AI 호출 재시도 로직 (Gemini/OpenAI 호출 실패 시 1~2회, backoff)
 - [ ] eval 셋을 시나리오 제안·평가(evaluator)에도 확장 — *지금 `server/eval/rubric-eval-set.json`은 루브릭 생성만 커버*
 - [ ] AI 호출 성공/실패·소요시간 로깅 — *지금은 `console.error`뿐이라 실패 패턴을 사후에 알 방법이 없음*
-- [ ] 훈련대화 화면: 로딩 상태(에이전트 응답 대기 중 표시), 응답 지연 시 처리
-- [ ] 훈련대화 화면: 항목별 ✓/✗ 표시가 실제 평가 JSON과 정확히 매핑되는지 (`✓ 사과 / ✗ 대기시간 안내 / ✓ 금지표현 없음`)
-- [ ] 루브릭승인 화면: 승인 루프 실동작 확인 (수정 요청 → 재생성 → 다시 승인)
+- [x] 훈련대화 화면: 로딩 상태(에이전트 응답 대기 중 표시) `확인` — 초기 진입("손님을 준비하고 있어요...")·턴 제출 중(입력창 비활성화 + "채점 중..." 버튼) 둘 다 이미 구현돼 있었음. 실제 계정으로 브라우저에서 직접 확인
+- [x] 훈련대화 화면: 항목별 ✓/✗ 표시가 실제 평가 JSON과 정확히 매핑되는지 `확인` — 2개 기준 중 1개만 충족하는 답변 제출 → 1/2 정확히 반영·재입력 요청 문구 확인 → 나머지 기준 채운 답변 제출 → 2/2·리포트 화면(100점, 두 항목 "잘함")까지 정확히 일치
+- [x] 루브릭승인 화면: 승인 루프 실동작 확인 `확인` — 이미 승인된 시나리오의 기준 하나를 직접 수정·저장 → 그 시나리오만 승인 표시가 즉시 풀리는 것(나머지 3개는 유지) → 재승인 → 다시 ✓ 표시되는 것까지 실제 계정으로 확인. "기준 재설정"(매뉴얼 전체 재작성) 흐름은 오늘 이미 여러 차례 검증됨(`docs/rubric-reset-flow.md`)
 - [ ] 빈 답변·네트워크 오류 등 실패 상태 UI
 - [ ] 반응형/모바일 점검 — *알바는 매장 링크를 폰으로 열 가능성이 높음*
 - [ ] 대시보드 알바 목록 등 클릭형 UI 접근성 개선 — *현재 프로토타입은 `<tr onclick>`만 있어 키보드 탐색이 불가능, 포커스 가능한 요소(버튼/링크)로 전환 필요*
-- [ ] Railway(BE)/Supabase(DB)/Vercel(FE) 배포 — *1주차 Day 1에 끝내지 못해 이월, 금요일 발표 전 하루 여유를 두기 위해 목요일에 배치, 안정성 보강 이후에 배포*
-- [ ] `feature-verifier`로 전체 흐름 최종 검증
+- [x] Vercel(FE+BE)/Supabase(DB) 배포 `완료` — *1주차 Day 1에 끝내지 못해 이월, 원래 이 날(목) 배치였으나 부스 전시 QR 링크가 급해 하루 전(수)에 당겨서 진행. 백엔드는 Railway 대신 Vercel 서버리스 함수로 배포 (`docs/deployment.md` 참고)*
+- [x] `feature-verifier`로 전체 흐름 최종 검증 `완료` — 사장님 회원가입→매장 생성→규칙 제출/루브릭 생성→승인→알바 계정/로그인→훈련 세션→오답(재입력)→정답(완료)→리포트→채점 검토 목록→세션별 리포트→캘리브레이션 조회→교정 저장까지 API 레벨로 끊김없이 확인. `[필수]/[선택]` echo 버그 재발 없음(`parseAIJson` 정상 동작 근거), 완료 세션 재제출 시 400 정상 차단. 서버 테스트 85개·루트 lint 통과. 브라우저 실클릭은 툴 제약으로 못했지만 프론트 컴포넌트 소비 필드명과 API 응답 1:1 대조로 대체 확인
 - [ ] PR 정리
 
 ### 7/24 (금) — 발표 데모
@@ -174,10 +174,10 @@
 - [ ] 평가 에이전트가 `get_rubric`·`save_session_turn`을 tool call로 쓰도록 교체
 - [ ] 기존 직접 쿼리 방식과 비교해 정상 동작하는지 회귀 확인 (1주차 eval 셋 재사용)
 
-### 배포 (Day 1에 만든 대상에 실제로 올리기)
-- [ ] Express 백엔드 Railway에 배포, 환경변수(`DATABASE_URL`은 Supabase 프로덕션 값, Anthropic API 키) 프로덕션 값으로 설정
-- [ ] React 프론트 Vercel에 배포, 프로덕션 API 주소로 연결
-- [ ] 프로덕션 URL로 실제 접속해서 "규칙 입력 → 훈련 → 리포트" 전체 흐름 한 번 확인 (로컬 아닌 배포본 기준, DB는 Supabase)
+### 배포 (Day 1에 만든 대상에 실제로 올리기) `완료 (2026-07-22, 3주차 수요일로 앞당김)`
+- [x] ~~Express 백엔드 Railway에 배포~~ → **Vercel 서버리스 함수(`api/index.js`)로 배포**, 환경변수(`DATABASE_URL`은 Supabase 프로덕션 값, `OPENAI_API_KEY`/`GEMINI_API_KEY` 등) 프로덕션 값으로 설정 완료 (`docs/deployment.md`)
+- [x] React 프론트 Vercel에 배포 — 백엔드와 같은 프로젝트/도메인이라 `VITE_API_BASE_URL`은 빈 문자열(상대경로)로 설정
+- [x] 프로덕션 URL(`https://hub-ten-virid.vercel.app`, 커스텀 도메인 `albafit.kr` 연결 진행 중)로 실제 접속해서 "체험하기 → 규칙 입력 → AI 루브릭 생성 → AI 손님과 대화 → 실시간 채점" 전체 흐름 브라우저로 직접 확인 (로컬 아닌 배포본 기준, DB는 Supabase)
 
 ### QA & 마감
 - [ ] 전체 흐름 통합 테스트 (사장님 설정 → 알바 훈련 → 결과 확인)
@@ -189,7 +189,7 @@
 - [ ] 규칙·시나리오 초안 자동 생성 (업종 템플릿 → AI 초안), AI 초안 승인/수정 UX 다듬기
 - [ ] **매뉴얼 사진 → 규칙 초안** — 별도 OCR 서비스 없이 **Claude Sonnet 5의 비전 입력**으로 사진을 바로 읽어 규칙 텍스트를 뽑는다 (plan.md 5-3)
 
-**4주차 완료 기준**: Railway(BE)/Vercel(FE)에 배포된 URL로 접속해서 "규칙 입력 → 훈련 → 리포트"가 한 번에 보여지는 완결된 v1 (DB는 Supabase). 데이터 접근은 MCP로 전환되어 있다.
+**4주차 완료 기준**: Vercel(FE+BE)에 배포된 URL로 접속해서 "규칙 입력 → 훈련 → 리포트"가 한 번에 보여지는 완결된 v1 (DB는 Supabase). 배포 자체는 3주차 수요일에 앞당겨 완료(`docs/deployment.md`). 데이터 접근은 MCP로 전환되어 있다.
 
 ---
 

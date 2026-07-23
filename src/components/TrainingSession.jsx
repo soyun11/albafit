@@ -136,6 +136,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
         }
       }
     } catch (err) {
+      // 제출이 실패하면 방금 낙관적으로 추가했던 내 말풍선(85행)을 되돌리고, 입력칸에 쓴 답을
+      // 그대로 복원한다 — 안 그러면 알바가 실패 이유도 모른 채 답을 통째로 다시 타이핑해야 한다.
+      setMessages((prev) => prev.slice(0, -1))
+      setInputValue(trimmed)
       setFeedback({ type: 'confused', text: err.message })
     } finally {
       setSubmitting(false)

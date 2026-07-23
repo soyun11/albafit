@@ -1,0 +1,6 @@
+{
+  "installCommand": "npm install && npm install --prefix server",
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/api" }
+  ]
+}

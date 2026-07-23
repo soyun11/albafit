@@ -1,0 +1,93 @@
+<svg width="1280" height="720" viewBox="0 0 1280 720" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="blob1" cx="15%" cy="-10%" r="60%">
+      <stop offset="0%" stop-color="#3D6FE0" stop-opacity="0.14"/>
+      <stop offset="100%" stop-color="#3D6FE0" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="blob2" cx="90%" cy="10%" r="55%">
+      <stop offset="0%" stop-color="#7FA6FF" stop-opacity="0.12"/>
+      <stop offset="100%" stop-color="#7FA6FF" stop-opacity="0"/>
+    </radialGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#3D6FE0"/>
+    </marker>
+    <marker id="arrow-soft" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#7FA6FF"/>
+    </marker>
+  </defs>
+
+  <!-- background -->
+  <rect x="0" y="0" width="1280" height="720" fill="#F4F5F7"/>
+  <rect x="0" y="0" width="1280" height="720" fill="url(#blob1)"/>
+  <rect x="0" y="0" width="1280" height="720" fill="url(#blob2)"/>
+
+  <!-- title -->
+  <text x="60" y="55" font-family="Pretendard, -apple-system, 'Apple SD Gothic Neo', sans-serif" font-size="28" font-weight="800" fill="#14171C">AI Agent Workflow</text>
+  <text x="60" y="80" font-family="'IBM Plex Mono', monospace" font-size="13" fill="#5B616C">턴제 루프 — 손님 발화 → 알바 답변 → (손님 에이전트 ∥ 평가 에이전트) → 분기</text>
+
+  <!-- top node: 알바 답변 -->
+  <rect x="520" y="130" width="240" height="60" rx="14" fill="#FFFFFF" stroke="#14171C" stroke-opacity="0.12" stroke-width="1.5"/>
+  <text x="640" y="166" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="16" font-weight="700" fill="#14171C">알바 답변 입력</text>
+
+  <!-- arrows from top node to two agent boxes -->
+  <path d="M560,190 Q450,220 350,250" fill="none" stroke="#3D6FE0" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M720,190 Q830,220 930,250" fill="none" stroke="#3D6FE0" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Box A: 손님 에이전트 -->
+  <rect x="140" y="250" width="420" height="170" rx="20" fill="#3D6FE0" fill-opacity="0.06" stroke="#3D6FE0" stroke-opacity="0.35" stroke-width="1.5"/>
+  <text x="350" y="288" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="20" font-weight="800" fill="#14171C">손님 에이전트</text>
+  <text x="350" y="312" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="13" font-weight="600" fill="#3D6FE0">OpenAI · gpt-4o-mini</text>
+  <line x1="170" y1="328" x2="530" y2="328" stroke="#3D6FE0" stroke-opacity="0.15"/>
+  <text x="170" y="354" font-family="Pretendard, sans-serif" font-size="14" font-weight="600" fill="#33363C">페르소나 + 시나리오 상태 유지</text>
+  <text x="170" y="378" font-family="Pretendard, sans-serif" font-size="13" fill="#5B616C">애드리브 응답 — 할루시네이션 위험 낮음</text>
+  <text x="170" y="400" font-family="'IBM Plex Mono', monospace" font-size="12" fill="#8A93A0">저비용 · 고빈도 호출</text>
+
+  <!-- Box B: 평가 에이전트 -->
+  <rect x="720" y="250" width="420" height="170" rx="20" fill="#3D6FE0" fill-opacity="0.10" stroke="#3D6FE0" stroke-opacity="0.5" stroke-width="1.5"/>
+  <text x="930" y="288" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="20" font-weight="800" fill="#14171C">평가 에이전트</text>
+  <text x="930" y="312" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="13" font-weight="600" fill="#3D6FE0">Google · gemini-3.5-flash</text>
+  <line x1="750" y1="328" x2="1110" y2="328" stroke="#3D6FE0" stroke-opacity="0.15"/>
+  <text x="750" y="354" font-family="Pretendard, sans-serif" font-size="14" font-weight="600" fill="#33363C">JSON 출력 강제 (responseSchema)</text>
+  <text x="750" y="378" font-family="Pretendard, sans-serif" font-size="13" fill="#5B616C">근거는 규칙 인용으로 대체 — 할루시네이션 방어</text>
+  <text x="750" y="400" font-family="'IBM Plex Mono', monospace" font-size="12" fill="#8A93A0">정확도 우선 호출</text>
+
+  <!-- Rubric feed box -->
+  <rect x="1000" y="88" width="220" height="112" rx="16" fill="#7FA6FF" fill-opacity="0.14" stroke="#7FA6FF" stroke-width="1.5"/>
+  <text x="1110" y="118" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="15" font-weight="800" fill="#14171C">루브릭</text>
+  <text x="1110" y="140" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" font-weight="600" fill="#3D6FE0">사장님 승인 완료</text>
+  <text x="1110" y="162" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#5B616C">닫힌 체크리스트로만 채점</text>
+  <text x="1110" y="180" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11.5" fill="#5B616C">(AI 즉석 해석 방지)</text>
+  <path d="M1110,200 Q1095,225 1080,250" fill="none" stroke="#7FA6FF" stroke-width="2" marker-end="url(#arrow-soft)"/>
+
+  <!-- arrows agent boxes -> outputs -->
+  <path d="M350,420 L350,450" fill="none" stroke="#3D6FE0" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M930,420 L930,450" fill="none" stroke="#3D6FE0" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Output A -->
+  <rect x="140" y="450" width="420" height="70" rx="14" fill="#FFFFFF" stroke="#14171C" stroke-opacity="0.10" stroke-width="1.5"/>
+  <text x="350" y="480" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="14" font-weight="700" fill="#14171C">손님 반응 → 다음 턴 대화</text>
+  <text x="350" y="500" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="11" fill="#8A93A0">대화 히스토리 누적 전달</text>
+
+  <!-- Output B -->
+  <rect x="720" y="450" width="420" height="90" rx="14" fill="#FFFFFF" stroke="#14171C" stroke-opacity="0.10" stroke-width="1.5"/>
+  <text x="930" y="478" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="13" font-weight="700" fill="#14171C">채점 결과 (JSON)</text>
+  <text x="930" y="500" text-anchor="middle" font-family="'IBM Plex Mono', monospace" font-size="12" fill="#33363C">{ 충족여부, 빠진기준[], 피드백, 개선문장 }</text>
+  <text x="930" y="522" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="11" fill="#8A93A0">이전에 충족한 기준은 유지 (evaluationCalibration.js)</text>
+
+  <!-- decision diamond -->
+  <path d="M930,568 L1030,610 L930,652 L830,610 Z" fill="#3D6FE0" fill-opacity="0.08" stroke="#3D6FE0" stroke-width="1.5"/>
+  <text x="930" y="615" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="14" font-weight="700" fill="#14171C">충족?</text>
+  <path d="M930,540 L930,568" fill="none" stroke="#3D6FE0" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- 충족 -> loop back to top -->
+  <path d="M1030,600 C1190,540 1190,190 760,158" fill="none" stroke="#7FA6FF" stroke-width="2" stroke-dasharray="7,5" marker-end="url(#arrow-soft)"/>
+  <text x="1010" y="330" font-family="'IBM Plex Mono', monospace" font-size="12" font-weight="600" fill="#3D6FE0">충족 → 다음 턴</text>
+
+  <!-- 미충족 -> 재입력 루프 -->
+  <path d="M930,652 L930,672" fill="none" stroke="#14171C" stroke-opacity="0.4" stroke-width="2" marker-end="url(#arrow)"/>
+  <rect x="660" y="672" width="540" height="48" rx="12" fill="#14171C" fill-opacity="0.04" stroke="#14171C" stroke-opacity="0.12" stroke-width="1.5"/>
+  <text x="930" y="701" text-anchor="middle" font-family="Pretendard, sans-serif" font-size="13" font-weight="600" fill="#33363C">미충족 → 재입력 루프 (개선 문장 제시, 같은 턴 재시도 · 하트 차감)</text>
+
+  <!-- footer note -->
+  <text x="60" y="700" font-family="'IBM Plex Mono', monospace" font-size="12" fill="#8A93A0">★ 손님 에이전트 ≠ 평가 에이전트 — 시스템 프롬프트·요구 품질·모델이 달라 절대 하나로 합치지 않는다</text>
+</svg>

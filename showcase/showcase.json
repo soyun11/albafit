@@ -1,0 +1,83 @@
+{
+  "schemaVersion": 1,
+  "title": "albafit — 매장 맞춤 AI 알바 훈련 서비스",
+  "summary": "매장 맞춤 AI 롤플레잉 트레이너 & 실시간 교정 피드백 에이전트가 신입 알바를 첫날부터 전문가로 만듭니다.",
+  "githubUser": "soyun11(박소윤)",
+  "demoUrl": "https://hub-ten-virid.vercel.app",
+  "thumbnail": "thumbnail.webp",
+  "screenshots": [
+    "screenshots/dashboard.webp",
+    "screenshots/training.webp"
+  ],
+  "problem": "소상공인 매장은 알바 교체가 잦고 메뉴·규칙도 수시로 바뀌는데, 사장님은 새 알바마다 응대 기준을 반복 설명할 시간과 여력이 없습니다. 그 결과 누가 언제 일하느냐에 따라 응대 품질이 들쭉날쭉해집니다.",
+  "targetUsers": [
+    "소상공인 매장 사장님",
+    "매장에 새로 들어온 알바"
+  ],
+  "features": [
+    "매장 규칙을 입력하면 AI가 실전 상황 시나리오와 채점 기준(루브릭)을 자동으로 만들어줍니다.",
+    "새 알바가 AI 손님과 실전처럼 대화 연습을 하고, 매장 기준에 맞춰 실시간 피드백을 받습니다.",
+    "사장님이 AI 채점 결과를 검토하고 직접 교정할 수 있습니다.",
+    "알바별 훈련 현황과 리포트를 대시보드에서 한눈에 확인합니다."
+  ],
+  "featureTags": [
+    "매장 규칙 관리",
+    "AI 롤플레잉 훈련",
+    "실시간 채점 피드백"
+  ],
+  "techStack": [
+    "React",
+    "Express",
+    "PostgreSQL",
+    "Prisma",
+    "OpenAI API",
+    "Gemini API"
+  ],
+  "techHighlights": [
+    "손님 역할(OpenAI gpt-4o-mini)과 채점(Gemini)을 분리해, 할루시네이션 위험이 큰 채점 쪽에 JSON 스키마 강제와 파싱 방어 로직을 집중시켰습니다.",
+    "매장 규칙을 루브릭(닫힌 채점표)으로 먼저 변환한 뒤 그 기준으로만 채점해, AI가 규칙을 임의로 해석하는 걸 막습니다.",
+    "핵심 로직(루브릭 재사용, 평가 교차검증, AI 응답 파싱 방어 등)을 TDD로 테스트 먼저 작성 후 구현했습니다."
+  ],
+  "developmentWithAI": "저는 문제 정의(소상공인 알바 교육 공백)와 핵심 기능 우선순위, 손님 역할·채점 역할을 다른 모델로 분리하는 것 같은 설계 결정을 직접 정했습니다. Claude Code와는 Plan Mode로 구현 계획을 같이 검토하고, TDD로 테스트를 먼저 쓴 뒤 코드를 만들었습니다. 기능이 실제로 동작하는지는 브라우저로 직접 눌러보거나 feature-verifier 에이전트로 검증했고, 버그를 발견하면 같이 원인을 찾아 고쳤습니다.",
+  "agent": {
+    "summary": "기획부터 구현·테스트·검증까지 Claude Code의 Plan Mode·서브에이전트·Skill을 함께 사용했습니다.",
+    "agentTools": [
+      {
+        "type": "agent",
+        "name": "task-planner",
+        "purpose": "새 기능을 작업 단위로 쪼개고 우선순위를 정합니다."
+      },
+      {
+        "type": "agent",
+        "name": "feature-verifier",
+        "purpose": "구현한 기능이 실제로 동작하는지 코드가 아니라 직접 실행해서 검증합니다."
+      },
+      {
+        "type": "skill",
+        "name": "test-writer",
+        "purpose": "Vitest 테스트 작성 규칙(파일 위치·mock 패턴)을 통일합니다."
+      }
+    ],
+    "workflows": [
+      {
+        "name": "기능 개발 Workflow",
+        "steps": [
+          "docs/*.md 설계 문서 작성",
+          "Plan Mode로 구현 계획 수립",
+          "TDD로 테스트 먼저 작성(RED)",
+          "구현(GREEN)",
+          "feature-verifier로 실제 동작 검증"
+        ]
+      },
+      {
+        "name": "리포트/UI 개선 Workflow",
+        "steps": [
+          "브라우저로 실제 클릭 재현",
+          "원인 파악",
+          "수정",
+          "다시 브라우저로 회귀 확인"
+        ]
+      }
+    ]
+  }
+}

@@ -98,11 +98,19 @@ export async function apiFetch(path, { method = 'GET', body, auth = true, _retri
     if (token) headers.Authorization = `Bearer ${token}`
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-  })
+  // fetch 자체가 reject하는 건(오프라인, CORS, 타임아웃 등) 응답 코드가 없는 완전한 네트워크
+  // 단절이다 — 이 경우를 따로 안 잡으면 브라우저 원문 에러("Failed to fetch")가 화면에 그대로
+  // 노출된다. 아래 4xx/5xx 처리(응답은 왔지만 실패)와는 별개의 상황이라 여기서 먼저 잡는다.
+  let response
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    })
+  } catch {
+    throw new Error('네트워크 연결을 확인해주세요.')
+  }
 
   if (response.status === 401 && auth && !_retried && getRefreshToken()) {
     try {
