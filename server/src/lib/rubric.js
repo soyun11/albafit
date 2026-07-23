@@ -1,5 +1,6 @@
 import gemini from './gemini.js'
 import { parseAIJson } from './aiJson.js'
+import { withRetry } from './retry.js'
 
 // docs/db-schema.md의 rubrics.criteria 컬럼 형식과 맞춘 스키마.
 // responseMimeType + responseSchema로 이 형태를 강제해서, 텍스트로 JSON 흉내내게 하고 파싱하는 것보다 안전하게 받는다.
@@ -48,14 +49,16 @@ ${rawRulesText}
 시나리오 제목: ${scenarioTitle}
 이 시나리오의 상황: ${situation ?? scenarioTitle}`
 
-  const response = await gemini.models.generateContent({
-    model: 'gemini-3.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: RUBRIC_SCHEMA,
-    },
-  })
+  const response = await withRetry(() =>
+    gemini.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: RUBRIC_SCHEMA,
+      },
+    }),
+  )
 
   const parsed = parseAIJson(response.text)
   return parsed.criteria

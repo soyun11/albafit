@@ -1,5 +1,6 @@
 import gemini from './gemini.js'
 import { parseAIJson } from './aiJson.js'
+import { withRetry } from './retry.js'
 
 // rubric.js의 RUBRIC_SCHEMA와 같은 목적 — responseSchema로 형태를 강제해서 텍스트 파싱 사고를 막는다.
 const SCENARIOS_SCHEMA = {
@@ -44,14 +45,16 @@ ${rawRulesText}
 
 이 규정을 바탕으로 실전 훈련에 쓸 만한 서로 다른 상황을 3~5개 뽑아라.`
 
-  const response = await gemini.models.generateContent({
-    model: 'gemini-3.5-flash',
-    contents: prompt,
-    config: {
-      responseMimeType: 'application/json',
-      responseSchema: SCENARIOS_SCHEMA,
-    },
-  })
+  const response = await withRetry(() =>
+    gemini.models.generateContent({
+      model: 'gemini-3.5-flash',
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: SCENARIOS_SCHEMA,
+      },
+    }),
+  )
 
   const parsed = parseAIJson(response.text)
   const scenarios = parsed.scenarios ?? []

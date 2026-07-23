@@ -1,4 +1,5 @@
 import openai from './openai.js'
+import { withRetry } from './retry.js'
 
 // 시나리오 타입별로 바뀌지 않는 것만 남긴다: 오프닝 대사, 한 줄짜리 상황 설명.
 // 손님의 실제 성격·반응 방식은 이 매장의 루브릭(criteria)을 보고 매번 동적으로 만든다 —
@@ -112,10 +113,12 @@ async function callCustomerAgent({ situation, criteria, history }) {
     })),
   ]
 
-  const response = await openai.chat.completions.create({
-    model: 'gpt-4o-mini',
-    messages,
-  })
+  const response = await withRetry(() =>
+    openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages,
+    }),
+  )
 
   return response.choices[0].message.content
 }
