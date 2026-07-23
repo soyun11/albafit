@@ -44,16 +44,22 @@ const INITIAL_RULES = [
 
 // 저장된 규칙 원문("제목: 내용" 형태로 두 줄바꿈마다 구분됨 — handleConfirm이 저장할 때 쓰는 형식 그대로)을
 // 다시 카드 배열로 되돌린다. "재설정" 화면에서 그동안 입력한 규칙을 카드로 불러올 때 씀.
-function parseRulesText(rawText) {
+// title/example에 사용자가 빈 줄을 포함해 입력하면 join 결과에 "\n\n\n\n"이 생겨 되돌릴 때 빈 청크가
+// 끼어들 수 있어 걸러내고(trim 후 filter), 청크 자체의 앞뒤 공백도 title/example로 새지 않게 trim한다.
+export function parseRulesText(rawText) {
   const trimmed = (rawText ?? '').trim()
   if (!trimmed) return []
 
-  return trimmed.split('\n\n').map((chunk, i) => {
-    const sepIndex = chunk.indexOf(': ')
-    const title = sepIndex === -1 ? `규정 ${i + 1}` : chunk.slice(0, sepIndex)
-    const example = sepIndex === -1 ? chunk : chunk.slice(sepIndex + 2)
-    return { id: `saved-${i}`, label: 'SAVED', title, example, mascot: 'approve', enabled: true }
-  })
+  return trimmed
+    .split('\n\n')
+    .map((chunk) => chunk.trim())
+    .filter((chunk) => chunk)
+    .map((chunk, i) => {
+      const sepIndex = chunk.indexOf(': ')
+      const title = sepIndex === -1 ? `규정 ${i + 1}` : chunk.slice(0, sepIndex)
+      const example = sepIndex === -1 ? chunk : chunk.slice(sepIndex + 2)
+      return { id: `saved-${i}`, label: 'SAVED', title, example, mascot: 'approve', enabled: true }
+    })
 }
 
 function RulesInput({
