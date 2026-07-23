@@ -52,7 +52,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ### 배포 대상
 
-백엔드는 Railway, DB는 Supabase(Postgres), 프론트는 Vercel (아직 이 저장소에서 설정 전). DB는 원래 Railway Postgres였으나 2026-07-13 과제 요구사항에 맞춰 Supabase로 전환 — 자세한 경위는 `docs/db-migration-plan.md` 참고.
+프론트+백엔드 전부 **Vercel**(Express 앱을 서버리스 함수 `api/index.js`로 배포), DB는 **Supabase**(Postgres). 원래 계획은 백엔드 Railway + 프론트 Vercel 분리였으나, 2026-07-22 Railway CLI 업로드 버그(+ 신규 계정 결제 요구)를 겪고 Vercel 풀스택으로 전환 — 자세한 경위·구성은 `docs/deployment.md` 참고. DB는 원래 Railway Postgres였으나 2026-07-13 과제 요구사항에 맞춰 Supabase로 전환 — 자세한 경위는 `docs/db-migration-plan.md` 참고. 커스텀 도메인은 `albafit.kr`(가비아).
 
 ## 개발 환경 (2026-07-10 결정)
 
@@ -63,6 +63,7 @@ React/Express가 기본 스택이라는 건 plan.md에 이미 정해져 있었�
 ```
 hub/
 ├─ src/                      # 프론트 (Vite + React) — 기존 그대로, 옮기지 않음
+├─ api/index.js              # Vercel 서버리스 함수 진입점 — server/src/app.js를 그대로 export (docs/deployment.md)
 ├─ server/                   # 백엔드 (Express) — 독립 package.json
 │  ├─ src/
 │  │  ├─ index.js            # 앱 엔트리 + /api/health 헬스체크만 있는 상태
@@ -89,7 +90,7 @@ hub/
 
 - `server/.env.example`에 `DATABASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `PORT`, `CORS_ORIGIN`을 정의해 커밋한다. 실제 값은 `server/.env`에 로컬로만 채운다.
 - 루트 `.gitignore`에 `.env`/`.env.*`(`.env.example` 제외) 무시 규칙을 추가했다 — **기존에는 이 규칙이 없어서 실수로 커밋될 수 있는 상태였다.**
-- Railway 배포 시 같은 키를 Railway 프로젝트 환경변수로 그대로 옮긴다.
+- 배포 시 같은 키를 Vercel 프로젝트 환경변수(Production)로 그대로 옮긴다 — `docs/deployment.md` 참고.
 
 ### 코드 컨벤션
 

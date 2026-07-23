@@ -8,6 +8,8 @@
 
 아래 "실행 완료" 절의 내용은 Railway Postgres 기준으로 이미 진행했던 첫 실행 기록이며 그대로 남겨둔다.
 
+**추가 변경 이력(2026-07-22)**: 위에서 "그대로 남기기"로 했던 Express 백엔드 호스팅도 결국 Railway에서 Vercel(서버리스 함수)로 바뀌었다 — Railway CLI 업로드 버그와 신규 계정 결제 요구 때문. DB는 이 절의 결정대로 Supabase 그대로 유지. 자세한 경위는 `docs/deployment.md` 참고.
+
 ## Supabase 재적용 완료 (2026-07-13)
 
 Supabase 프로젝트(`aws-1-ap-northeast-2` 리전) 생성 후 `server/.env`의 `DATABASE_URL`을 session-mode pooler 연결 문자열로 교체하고 `npx prisma migrate deploy`로 기존 `20260713082346_init` 마이그레이션을 그대로 적용했다 (새 마이그레이션 생성 아님, 기존 이력 재적용). 코드 변경은 없었다.

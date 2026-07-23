@@ -135,7 +135,7 @@ AI 응대 훈련 시장은 이미 검증됐지만, 전부 대기업을 향한다
 ### 5-5. 기술 스택 & 데이터
 
 - 프론트 React / 백엔드 Express / DB PostgreSQL(매장→규칙→루브릭→시나리오→세션의 FK 관계, 구조가 바뀌는 값은 JSONB)
-- **배포**: 백엔드는 Railway, DB는 Supabase(Postgres), 프론트는 Vercel. 1주차에 빈 껍데기로 미리 배포해 파이프라인을 검증하고, 4주차에 완성본을 올린다. (2026-07-13: 과제 요구사항에 맞춰 DB만 Railway→Supabase로 전환, [db-migration-plan.md](/hub/docs/db-migration-plan.md) 참고)
+- **배포**: 프론트+백엔드 전부 Vercel(백엔드는 서버리스 함수), DB는 Supabase(Postgres). 1주차에 빈 껍데기로 미리 배포해 파이프라인을 검증하고, 4주차에 완성본을 올린다. (2026-07-13: 과제 요구사항에 맞춰 DB만 Railway→Supabase로 전환, [db-migration-plan.md](/hub/docs/db-migration-plan.md) 참고 / 2026-07-22: 백엔드 호스팅도 Railway→Vercel로 전환, [deployment.md](/hub/docs/deployment.md) 참고)
 - AI 로직은 순수 API 호출로 먼저 구현. 평가 에이전트 출력은 **반드시 JSON**(`{충족여부, 빠진기준[], 피드백, 개선문장}`)으로 강제.
 - 저장의 루트는 매장 링크(`link_key`). 알바는 계정 없이 자유 라벨(`staff_label`)만 남긴다. 상세 스키마는 [db-schema.md](/hub/docs/db-schema.md) 참고.
 
