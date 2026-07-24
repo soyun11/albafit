@@ -1,0 +1,88 @@
+# ai-workflow.md — 나만의 AI(Claude Code) 워크플로우
+
+> 관련 이슈: `soyun11/hub#7`. 여기 나오는 순서·Skill·Agent는 전부 이번 챌린지 3주 동안 실제로 쓴 것만 적는다 — 써보지 않은 이상적인 프로세스를 적지 않는다.
+
+## 왜 정리하나
+
+1~3주차 동안 기능마다 "일단 Claude Code한테 시켜본" 게 아니라, 실제로는 매번 비슷한 순서를 반복하고 있었다. 그 순서 자체가 암묵지로 남아있으면 다음 사람(또는 미래의 나)이 재현할 수 없으니, 실제로 밟은 단계와 그 단계마다 왜 그 Skill/Agent를 골랐는지를 여기 남긴다.
+
+## 전체 순서
+
+```
+1. 요구사항 파악          2. 계획 쪼개기(선택)     3. 결정 기록          4. 구현(TDD 우선)        5. 실행 검증           6. 학습 기록
+   (기존 코드/문서 확인) → (task-planner 에이전트) → (docs/*.md에 문서화) → (test-writer 스킬 참고) → (feature-verifier 에이전트) → (docs/study-notes)
+```
+
+모든 기능에 6단계를 전부 밟는 건 아니다 — 아래 "단계별로 실제로 언제 썼는지"에 기준을 적어둔다.
+
+### 1. 요구사항 파악
+
+새 기능이든 버그 수정이든, 먼저 관련 코드를 읽고 이미 있는 걸 다시 만들지 않는지부터 확인한다. 이 단계는 항상 한다 — Claude Code의 `Explore` 서브에이전트나 `Grep`/`Read`로 직접 하며, 별도 문서화는 안 남긴다.
+
+### 2. 계획 쪼개기 — `task-planner` 에이전트 (선택적)
+
+**언제 쓰나**: 기능 하나가 "몇 시간 안에 끝나는 단일 작업"보다 크다고 느껴질 때, 또는 이미 세운 계획을 다른 시각으로 점검하고 싶을 때.
+
+**실제 사용 예**:
+- 재입력 루프 + 하트 시스템 설계 (`docs/retry-loop-and-hearts.md` 이전 단계)
+- 루브릭 재사용성 기능 강화① — `docs/rubric-reuse.md`에 "구현 전 task-planner 에이전트로 작업을 쪼개 검토했고, 그 결과 나온 가정 중 두 가지를 사용자가 확정했다"고 명시
+- 데모 전날(7/23) 남은 작업(재시도·에러 UI·반응형 점검) 범위 판단 — `docs/study-notes/ai/agent-engineer-takeaways.md` 10절
+
+**왜 쓰나**: 이 에이전트는 코드를 수정하지 않고 Read/Grep/Glob만으로 저장소를 실제로 뒤져서 "이미 있는 것"과 "새로 필요한 것"을 구분해준다. "일단 눈에 띄는 대로 다 고치자"가 아니라, 무엇을 왜 하는지 사람이 먼저 검토할 수 있는 표 형태로 받는 게 핵심 — 계획 자체를 에이전트에게 위임하되, 승인은 내가 한다.
+
+**안 쓸 때**: 작업이 한 파일, 한두 시간 안에 끝나는 게 뻔할 때는 바로 구현으로 들어간다. 매번 계획 에이전트부터 돌리는 건 그 자체로 오버헤드다.
+
+### 3. 결정 기록 — `docs/*.md`
+
+기능 하나마다 별도 문서를 만들어 "왜 이렇게 결정했는지"를 표로 남긴다 (`docs/rubric-reuse.md`, `docs/evaluation-cross-check.md`, `docs/session-review.md`, `docs/guest-try-feature.md` 등 15개 이상). 패턴은 항상 같다: 관련 이슈 번호 명시 → 왜 만들었나 → 논점별 결정 표(논점/결정/이유) → 다음 단계.
+
+**왜 쓰나**: AI(Claude Code)가 여러 구현 옵션을 제시했을 때, 그 자리에서 고른 이유를 안 적어두면 나중에 "왜 이렇게 짰더라"를 코드만 보고 복원할 수 없다. 특히 "안 하기로 한 것"(예: 임베딩 API 대신 자카드 유사도, LangChain/RAG 도입 보류 — `docs/ai-usage-and-cost-review.md`)은 코드에는 아예 흔적이 안 남으므로 반드시 문서로만 남길 수 있다.
+
+### 4. 구현 — TDD 우선, `test-writer` 스킬
+
+**언제 쓰나**: `server/src/lib/`에 새 순수 함수를 추가하거나, TDD로 새 기능을 시작할 때 이 스킬을 먼저 읽는다.
+
+**실제 사용 예**: 7/23, `parseAIJson`(`aiJson.js`)과 `withRetry`(`retry.js`)를 RED→GREEN 순서로 작성 (PR #1828에 `retry.test.js`, `aiJson.test.js` 포함, 병합됨). 케이스(정상/코드펜스/파싱실패, 성공/1회실패후재시도/전부실패/backoff)를 테스트로 먼저 적고 나니 구현은 15~20줄 안팎으로 끝났다 — 자세한 회고는 `docs/study-notes/ai/agent-engineer-takeaways.md` 8절.
+
+**원칙**: DB·LLM 호출이 섞인 코드를 그대로 테스트하지 않고, 순수 함수만 분리해 테스트한다(`sessionTurns.js`의 `pickFinalAttempts`/`computeHearts`가 레퍼런스). 라우트는 그 순수 함수를 부르는 얇은 껍데기로만 남긴다.
+
+**같은 결함이 반복되면 공용 함수로**: `evaluator`/`rubric`/`scenarioProposer`/`evaluatorCrossCheck`/`manualRules` 5개 파일이 전부 같은 무방비 `JSON.parse`를 갖고 있던 걸 발견하고, 5번 따로 고치는 대신 `parseAIJson` 하나로 모아 재사용했다. 몇 시간 뒤 `withRetry`를 추가할 때도 정확히 같은 패턴(공용 함수 하나 → 여러 호출부에 얇게 적용)을 반복했다.
+
+### 5. 실행 검증 — `feature-verifier` 에이전트
+
+**언제 쓰나**: 기능을 새로 만들었거나 고친 뒤, 코드 리뷰가 아니라 "진짜 되는지"를 확인하고 싶을 때.
+
+**왜 만들었나**: 코드 리뷰만으로는 못 잡은 버그가 실제로 여러 번 있었다 —
+- 루브릭 생성 시 시나리오의 situation을 안 넘겨서 상황과 무관한 채점 기준이 섞인 버그(2주차 트러블슈팅 사례, `docs/staff-report-and-rubric-fix.md`)
+- 평가 에이전트가 "[필수]" 접두어를 그대로 echo해서 충족한 기준이 미충족으로 잘못 판정된 버그 — 실제로 curl로 API를 호출해보고서야 발견
+- "기준 재설정"을 반복 제출할 때마다 규칙이 4→8→16개로 배로 불어난 버그(`docs/rubric-reset-flow.md`)
+
+세 버그 모두 코드만 읽어서는 안 보였고 실제로 돌려봐야 드러났다 — 그래서 "코드가 맞아 보인다"가 아니라 "실제로 실행했을 때 그렇게 동작했다"는 증거만 신뢰하는 전용 에이전트를 만들었다. curl로 실제 엔드포인트 호출, Prisma로 DB row 직접 조회, 정상 케이스뿐 아니라 엣지 케이스(재입력·빈 값·미승인 상태)까지 최소 1개는 같이 실행해서 확인한다. 버그를 발견해도 고치지 않고 재현 방법만 보고한다 — 수정은 항상 메인 대화에서.
+
+### 6. 학습 기록 — `docs/study-notes/`
+
+FE·BE·DB·AI 영역별로 새로 배운 개념(미들웨어, JWT 인증, 두 에이전트 흐름 등)을 정리하며 개발한다 — 기능만 완성하는 게 아니라 왜 이렇게 짰는지 이해하고 넘어가는 게 목적. `docs/study-notes/ai/agent-engineer-takeaways.md`에는 이 워크플로우 전체에 대한 회고 10가지가 더 자세히 있다.
+
+## Skill·Agent 요약표
+
+| 이름 | 종류 | 언제 쓰나 | 코드 수정 여부 |
+|---|---|---|---|
+| `task-planner` | Agent | 기능이 한 번에 끝내기엔 크다고 느껴질 때, 계획을 다른 시각으로 점검하고 싶을 때 | 안 함 (Read/Grep/Glob만) |
+| `feature-verifier` | Agent | 기능 구현·수정 후 실제로 동작하는지 확인할 때 | 안 함 (Bash/Read/Grep/Glob만, 버그는 보고만) |
+| `test-writer` | Skill | `server/src/lib`에 새 순수 함수 추가·수정, 외부 의존(prisma/openai/gemini) 함수 첫 테스트, TDD 시작 시 | 해당 없음(가이드 문서) |
+| `default-design` | Skill | 새 화면·컴포넌트를 만들거나 기존 화면 스타일을 수정할 때 | 해당 없음(가이드 문서) |
+
+## AI를 무모하게 쓰지 않기 위한 판단
+
+- **모델을 태스크 위험도에 맞춰 고른다**: 손님 에이전트는 저비용 모델(`gpt-4o-mini`, 애드리브라 틀려도 자산), 평가 에이전트는 스키마 강제가 되는 모델(Gemini `responseSchema`, 틀리면 안 되는 채점). 무조건 제일 좋은 모델을 쓰지 않는다.
+- **도입 안 하기로 한 것도 근거를 남긴다**: LangChain/LangGraph, RAG 둘 다 "일단 도입"하지 않고 왜 지금 필요 없는지를 `docs/ai-usage-and-cost-review.md`에 남기고 되돌렸다. "넣어봤어요"보다 "왜 안 넣었는지 설명할 수 있어요"가 더 값어치 있다는 걸 실감했다 — 특히 RAG는 "AI는 사장님이 준 것 이상 지어내면 안 된다"는 이 프로젝트 원칙과 방향이 반대라 더 안 맞았다.
+- **LLM 응답을 그대로 믿지 않고 코드로 한 번 더 검증한다**: `evaluator.js`는 이전에 충족한 항목을 LLM 판단과 무관하게 강제 유지하고, `missingCriteria`도 LLM이 아니라 서버가 직접 계산한다 — "프롬프트를 잘 쓰는 것"보다 신뢰성 있는 접근.
+- **AI 생성물은 사람 승인 전엔 확정하지 않는다**: 규칙→루브릭 변환, 시나리오 초안 모두 `approved_at`이 null인 미승인 상태로 시작하고, 승인 전까지는 다른 매장에 재사용 템플릿으로도 안 쓴다(`docs/rubric-reuse.md`).
+- **회귀는 감이 아니라 셋으로 확인한다**: 프롬프트를 바꿀 때 `server/eval/rubric-eval-set.json` 같은 회귀셋으로 확인하고, 순수 로직은 Vitest로, 실제 LLM 호출이 얽힌 부분은 `feature-verifier`로 실행 기반 검증한다 — 뭘 유닛테스트할 수 있고 뭘 못 하는지 구분해서 쓴다.
+
+## 관련 문서
+
+- [`docs/study-notes/ai/agent-engineer-takeaways.md`](./study-notes/ai/agent-engineer-takeaways.md) — 이 워크플로우를 쓰면서 배운 것 10가지 (더 상세한 회고)
+- [`docs/study-notes/ai/two-agent-flow.md`](./study-notes/ai/two-agent-flow.md) — 서비스 자체의 손님/평가 2-에이전트 구조(이 문서와는 다른 층위 — 이건 "내가 Claude Code와 일하는 법", 그건 "서비스가 OpenAI/Gemini를 쓰는 법")
+- [`docs/ai-usage-and-cost-review.md`](./ai-usage-and-cost-review.md) — LangChain/LangGraph/RAG 도입 검토 원본
+- [`docs/rubric-reuse.md`](./rubric-reuse.md) — task-planner 실사용 예시가 담긴 문서

@@ -21,14 +21,14 @@
 ### 트랙 A — 데이터·로직 (백엔드)
 
 #### Day 1 — 프로젝트 셋업 & 배포 대상 만들기
-- [ ] 레포 초기화 (React + Express, 프론트/백엔드 디렉터리 분리)
-- [ ] `.env` 설계·관리 (Anthropic API 키, `DATABASE_URL`, `.env.example` 커밋)
+- [x] 레포 초기화 (React + Express, 프론트/백엔드 디렉터리 분리) — `src/`(프론트) + `server/`(백엔드) 독립 구조로 완료
+- [x] `.env` 설계·관리 (`DATABASE_URL`, `OPENAI_API_KEY`, `GEMINI_API_KEY`, `.env.example` 커밋) — `server/.env.example` 존재. *Anthropic 키는 2026-07-14 OpenAI+Gemini 조합 전환(CLAUDE.md)으로 대상에서 빠짐*
 - [x] ~~Railway 프로젝트 생성~~ — Express 백엔드 호스팅 (plan.md 5-5). **2026-07-22: 계획 변경, Railway 대신 Vercel 서버리스 함수로 백엔드 호스팅** (`docs/deployment.md` 참고, Railway CLI 업로드 버그 + 신규 계정 결제 요구 때문에 전환)
-- [ ] **Supabase 프로젝트 생성** — Postgres DB 호스팅 (2026-07-13 과제 요구사항에 맞춰 Railway Postgres→Supabase로 전환, docs/db-migration-plan.md 참고)
-- [ ] **Vercel 프로젝트 생성 및 GitHub 연결** — 프론트(React)용, push마다 자동 배포되는지 확인
-- [ ] ORM 셋업 — Prisma 권장 (`npx prisma init`), db-schema.md의 스키마를 `schema.prisma`로 옮기기
-- [ ] Anthropic API 연결 스모크 테스트 (키 유효성만 확인하는 최소 호출 1개)
-- [ ] 빈 화면·빈 서버 상태로 한 번 배포해보기 — Railway(빈 서버)·Supabase(빈 DB 프로젝트)·Vercel(빈 화면) 전부 연결된 것만 확인 (내용은 나중에 채움)
+- [x] **Supabase 프로젝트 생성** — Postgres DB 호스팅 완료 (2026-07-13 과제 요구사항에 맞춰 Railway Postgres→Supabase로 전환, docs/db-migration-plan.md 참고), 프로덕션에서 실제 사용 중
+- [x] **Vercel 프로젝트 생성 및 GitHub 연결** — 프론트+백엔드(서버리스 함수) 같은 프로젝트로 배포 완료, push마다 자동 배포 확인됨 (`docs/deployment.md`)
+- [x] ORM 셋업 — Prisma (`server/prisma/schema.prisma`), db-schema.md 스키마 그대로 반영
+- [x] ~~Anthropic API 연결 스모크 테스트~~ — 2026-07-14 OpenAI+Gemini 전환으로 대상 자체가 없어짐(무의미해짐). 실제로는 각 프로바이더 첫 실 호출(규칙→루브릭, 손님 대화)이 스모크 테스트를 대체함
+- [x] ~~빈 화면·빈 서버 상태로 한 번 배포해보기~~ — 이 형태의 "빈 배포"는 안 거쳤지만, 3주차에 실제 콘텐츠 있는 상태로 Vercel+Supabase 배포·전체 흐름 확인까지 끝나 목적(파이프라인 검증) 자체는 충족됨
 
 #### Day 2 — 데이터 모델 마이그레이션 & 매장 링크 API
 > **1주차 안에 끝내지 못해 2주차로 이월** — 아래 "2주차 — 코어 로직 + UI 컴포넌트화" 섹션의 "7/13 — DB 마이그레이션 + 매장 링크 API"에서 이어서 진행 (docs/backlog.md 5절 참고).
@@ -129,30 +129,30 @@
 - [x] 테스트코드 생성 Skill 제작 (`.claude/skills/`) — 기능강화①에서 짠 테스트 패턴을 재사용 가능한 형태로 뽑아냄 (`82cac9d1`)
 - [x] **기능 강화 ②** 평가 결과 교차검증 — AI와 설계 → 작게 나눠 이슈 등록. 평가 에이전트(Sonnet 5)가 채점한 결과를 다른 모델(예: GPT)로 한 번 더 검증하는 자동화 루프 (고스트캠프 멘토링 피드백, [backlog.md 6절](./backlog.md#6-멘토링-반영-2026-07-13) 참고) — GitHub #5 이슈 등록 완료, 구현은 7/22로 이어서 진행
 
-### 7/22 (수) — 기능강화② 구현 + 평가 캘리브레이션 + 워크플로우 문서
+### 7/22 (수) — 기능강화② 구현 + 평가 캘리브레이션 + 워크플로우 문서 `완료`
 - [x] 기능 강화② 구현 — `server/src/lib/evaluatorCrossCheck.js` (Gemini↔OpenAI 교차검증, fire-and-forget, 참고 로그만), 테스트 12개 + `feature-verifier` 통합 검증 통과. 설계·검증 근거는 `docs/evaluation-cross-check.md`, GitHub #5
 - [x] **평가 에이전트 캘리브레이션** ★ (human-in-the-loop)
   - [x] 사장님이 초기 평가 결과 몇 개를 검토·교정하는 화면/흐름 — `TurnCalibrationReview.jsx` + `PATCH /api/sessions/turns/:turnId/calibration`, 브라우저로 토글·저장·새로고침 후 유지까지 확인. 설계·검증 근거는 `docs/evaluation-calibration.md`, GitHub #6
   - [x] 오답 케이스 모아 루브릭·프롬프트 다듬기 — 이번 이슈 스코프는 "사람이 검토·수정할 수 있다"까지. `ownerCorrection`이 DB에 쌓이는 것 자체가 원재료 축적(자동 다듬기는 하지 않음, 과설계 방지)
   - [x] 엣지 케이스 테스트 (빈 답변, 무관한 답변, 규칙에 없는 얘기) — `feature-verifier`로 확인: 빈 답변은 API가 이미 400으로 차단, 성의없는 답변·무관한 답변 둘 다 Gemini가 정직하게 `met:false` 판정
-- [ ] 나만의 Agent 워크플로우 문서화 — task-planner(계획) → 구현 → feature-verifier(검증) 흐름
+- [x] 나만의 Agent 워크플로우 문서화 — task-planner(계획) → 결정 기록(docs/*.md) → 구현(TDD, test-writer) → feature-verifier(검증) → 학습 기록(study-notes) 흐름을 `docs/ai-workflow.md`로 정리 (GitHub #7)
   - [x] 코드 검증 Agent 제작 및 활용 — `feature-verifier`(`.claude/agents/feature-verifier.md`), 시나리오 생성 기능에 실제 적용 완료 (7/17)
 
 ### 7/23 (목) — 안정성 보강 + UI 디테일 + 배포 + 최종 검증
 - [ ] 시나리오 배치 생성 트랜잭션으로 묶기 (`prisma.$transaction`) — *`stores.js`의 `POST /:linkKey/rules`가 `Promise.all`로 여러 개를 만드는데, 중간 실패 시 부분 데이터가 남을 수 있음*
 - [x] AI 응답 JSON 파싱 방어 (`evaluator.js`/`rubric.js`/`scenarioProposer.js`) `완료` — *`responseSchema` 강제해도 100% 보장 아님, "[필수]" 접두어 버그가 그 증거*. TDD로 순수 함수 `parseAIJson`(`server/src/lib/aiJson.js`, 코드펜스 방어 포함) 작성 후 위 3개 + `evaluatorCrossCheck.js`/`manualRules.js`까지 5곳 전부 교체. 테스트 6개(RED→GREEN) + `feature-verifier`로 실제 서버·실제 Gemini 호출 경로(`manual-split`)까지 검증 완료. 한계: 코드펜스 앞뒤에 설명 문장이 섞이면 못 벗김(문자열 전체가 펜스인 경우만 처리) — 5곳 다 `responseSchema`/`response_format`으로 이미 강제 중이라 실사용 경로는 아님
-- [ ] AI 호출 재시도 로직 (Gemini/OpenAI 호출 실패 시 1~2회, backoff)
+- [x] AI 호출 재시도 로직 (Gemini/OpenAI 호출 실패 시 1~2회, backoff) `완료` — TDD로 `withRetry`(`server/src/lib/retry.js`) 작성, RED→GREEN 테스트 5케이스(`retry.test.js`), evaluator/customerAgent/rubric/manualRules/scenarioProposer에 적용(fire-and-forget인 evaluatorCrossCheck는 제외). PR #1828 병합
 - [ ] eval 셋을 시나리오 제안·평가(evaluator)에도 확장 — *지금 `server/eval/rubric-eval-set.json`은 루브릭 생성만 커버*
 - [ ] AI 호출 성공/실패·소요시간 로깅 — *지금은 `console.error`뿐이라 실패 패턴을 사후에 알 방법이 없음*
 - [x] 훈련대화 화면: 로딩 상태(에이전트 응답 대기 중 표시) `확인` — 초기 진입("손님을 준비하고 있어요...")·턴 제출 중(입력창 비활성화 + "채점 중..." 버튼) 둘 다 이미 구현돼 있었음. 실제 계정으로 브라우저에서 직접 확인
 - [x] 훈련대화 화면: 항목별 ✓/✗ 표시가 실제 평가 JSON과 정확히 매핑되는지 `확인` — 2개 기준 중 1개만 충족하는 답변 제출 → 1/2 정확히 반영·재입력 요청 문구 확인 → 나머지 기준 채운 답변 제출 → 2/2·리포트 화면(100점, 두 항목 "잘함")까지 정확히 일치
 - [x] 루브릭승인 화면: 승인 루프 실동작 확인 `확인` — 이미 승인된 시나리오의 기준 하나를 직접 수정·저장 → 그 시나리오만 승인 표시가 즉시 풀리는 것(나머지 3개는 유지) → 재승인 → 다시 ✓ 표시되는 것까지 실제 계정으로 확인. "기준 재설정"(매뉴얼 전체 재작성) 흐름은 오늘 이미 여러 차례 검증됨(`docs/rubric-reset-flow.md`)
-- [ ] 빈 답변·네트워크 오류 등 실패 상태 UI
+- [x] 빈 답변·네트워크 오류 등 실패 상태 UI `일부 완료` — 훈련 대화 제출 실패(네트워크 단절 등) 시 낙관적으로 추가했던 말풍선을 롤백하고 입력값을 복원, 에러 메시지도 "네트워크 연결을 확인해주세요"로 통일(`TrainingSession.jsx`+`src/lib/api.js`, 테스트 2개, PR #1828). 빈 답변은 API가 이미 400으로 차단(7/22 확인) — 프론트에서 빈 답변 제출 시 별도 안내 UI까지는 아직
 - [ ] 반응형/모바일 점검 — *알바는 매장 링크를 폰으로 열 가능성이 높음*
 - [ ] 대시보드 알바 목록 등 클릭형 UI 접근성 개선 — *현재 프로토타입은 `<tr onclick>`만 있어 키보드 탐색이 불가능, 포커스 가능한 요소(버튼/링크)로 전환 필요*
 - [x] Vercel(FE+BE)/Supabase(DB) 배포 `완료` — *1주차 Day 1에 끝내지 못해 이월, 원래 이 날(목) 배치였으나 부스 전시 QR 링크가 급해 하루 전(수)에 당겨서 진행. 백엔드는 Railway 대신 Vercel 서버리스 함수로 배포 (`docs/deployment.md` 참고)*
 - [x] `feature-verifier`로 전체 흐름 최종 검증 `완료` — 사장님 회원가입→매장 생성→규칙 제출/루브릭 생성→승인→알바 계정/로그인→훈련 세션→오답(재입력)→정답(완료)→리포트→채점 검토 목록→세션별 리포트→캘리브레이션 조회→교정 저장까지 API 레벨로 끊김없이 확인. `[필수]/[선택]` echo 버그 재발 없음(`parseAIJson` 정상 동작 근거), 완료 세션 재제출 시 400 정상 차단. 서버 테스트 85개·루트 lint 통과. 브라우저 실클릭은 툴 제약으로 못했지만 프론트 컴포넌트 소비 필드명과 API 응답 1:1 대조로 대체 확인
-- [ ] PR 정리
+- [x] PR 정리 `완료` — 매일 작업분을 그날그날 PR로 올려 병합하는 방식으로 진행, 현재 14개 PR 전부 병합 완료(중복 1건만 닫힘), 열려있는 PR 없음
 
 ### 7/24 (금) — 발표 데모
 - [ ] 발표 데모 (개발 작업 없음, 버그 나오면 최소 수정만)
