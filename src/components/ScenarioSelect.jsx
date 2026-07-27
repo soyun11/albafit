@@ -62,7 +62,10 @@ function ScenarioSelect({ onNext, onNavigate, onChangePassword, onLogout }) {
                   className={`scenario-card glass ${isSelected ? 'selected' : ''}`}
                   onClick={() => setSelected(scenario.id)}
                 >
-                  <span className="scenario-title">{scenario.title}</span>
+                  <span className="scenario-title">
+                    {scenario.title}
+                    {scenario.isDefault && <span className="scenario-badge-default">기본</span>}
+                  </span>
                   <span className="scenario-desc">{scenario.situation}</span>
                   <div className="check" />
                 </button>

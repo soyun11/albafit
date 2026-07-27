@@ -5,6 +5,7 @@ import { generateLinkKey } from '../lib/linkKey.js'
 import { generateRubric } from '../lib/rubric.js'
 import { proposeScenarios } from '../lib/scenarioProposer.js'
 import { findReuseCandidateBatches, findBestReuseCandidate } from '../lib/rubricReuse.js'
+import { seedDefaultScenarios } from '../lib/defaultScenarios.js'
 import { splitManualRules } from '../lib/manualRules.js'
 import { hashPassword, signAccessToken } from '../lib/auth.js'
 import { requireAuth, requireRole } from '../middleware/requireAuth.js'
@@ -84,6 +85,12 @@ router.post('/', requireAuth, requireRole('owner'), async (req, res) => {
         where: { id: req.user.id },
         data: { storeId: store.id },
       })
+
+      // 업종별 기본 매뉴얼 시딩 — 사장님이 규칙을 하나도 제출·승인하지 않아도 알바가 바로 훈련을
+      // 시작할 수 있게 한다(docs/default-manual-scenarios.md). seedDefaultScenarios는 절대 throw하지
+      // 않으므로(defaultScenarios.test.js로 보장) 여기서 별도 try/catch가 필요 없다 — 실패해도
+      // "매장은 이미 생성됐는데 프론트는 실패로 믿는" 상태가 되지 않는다.
+      await seedDefaultScenarios({ storeId: store.id, industry: store.industry })
 
       // req.user(토큰 안 값)는 storeId가 비어있던 옛날 값이라, 새 storeId를 담아 액세스 토큰을 다시
       // 발급해서 프론트가 이 응답의 accessToken으로 갈아끼우면 그 다음 요청부터 바로 이 매장 소속으로
@@ -372,7 +379,12 @@ router.get('/me/training-scenarios', requireAuth, async (req, res) => {
     })
 
     return res.json({
-      scenarios: scenarios.map((s) => ({ id: s.id, title: s.title, situation: s.persona?.situation ?? '' })),
+      scenarios: scenarios.map((s) => ({
+        id: s.id,
+        title: s.title,
+        situation: s.persona?.situation ?? '',
+        isDefault: s.storeRuleId === null,
+      })),
     })
   } catch (err) {
     console.error(err)
