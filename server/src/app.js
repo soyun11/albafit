@@ -5,7 +5,6 @@ import storesRouter from './routes/stores.js'
 import authRouter from './routes/auth.js'
 import rubricsRouter from './routes/rubrics.js'
 import sessionsRouter from './routes/sessions.js'
-import guestRouter from './routes/guest.js'
 
 const app = express()
 
@@ -20,6 +19,5 @@ app.use('/api/auth', authRouter)
 app.use('/api/stores', storesRouter)
 app.use('/api/rubrics', rubricsRouter)
 app.use('/api/sessions', sessionsRouter)
-app.use('/api/guest', guestRouter)
 
 export default app
