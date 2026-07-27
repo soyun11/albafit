@@ -190,6 +190,20 @@
   background: #1d8c5a;
 }.session-page .rc-dot.wait {
   background: rgba(20, 23, 28, 0.15);
+}.session-page .rc-label {
+  flex: 1;
+}.session-page .rc-required-badge {
+  flex-shrink: 0;
+  padding: 2px 7px;
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: var(--radius-chip);
+}.session-page .rc-required-badge.required {
+  color: #9a6a0e;
+  background: rgba(220, 160, 50, 0.12);
+}.session-page .rc-required-badge.optional {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-selected);
 }.session-page .metric-mini {
   padding: 18px 22px;
   display: flex;
