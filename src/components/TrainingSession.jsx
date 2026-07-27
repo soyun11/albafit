@@ -117,8 +117,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
           text: `${data.evaluation.feedback} 다시 답해볼까요?`,
         })
       } else {
+        // 여기 도달했다는 건 이미 위에서 data.retryNeeded가 false로 확인된 상태 — 재입력이 필요할
+        // 때만 confused를 보여주고, 진전이 있었으면(완료든 다음 턴이든) 항상 approve로 보여준다.
         setFeedback({
-          type: data.evaluation.passed ? 'approve' : 'confused',
+          type: 'approve',
           text: data.evaluation.feedback,
         })
 
@@ -215,7 +217,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
             ))}
           </div>
           <p className="hearts-hint">
-            기준을 하나도 못 채운 답변에서만 하트가 줄어요. 하트가 다 떨어지면 훈련이 바로 끝나요.
+            필수·선택 상관없이, 이번 답변에서 새로 채운 기준이 하나라도 있으면 하트가 안 줄어요. 하트가 다 떨어지면 훈련이 바로 끝나요.
           </p>
         </div>
 
@@ -296,7 +298,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
               {checklist.map((item) => (
                 <div key={item.id} className="rc-item">
                   <div className={`rc-dot ${item.status}`} />
-                  {item.label}
+                  <span className="rc-label">{item.label}</span>
+                  <span className={`rc-required-badge ${item.required ? 'required' : 'optional'}`}>
+                    {item.required ? '필수' : '선택'}
+                  </span>
                 </div>
               ))}
             </div>

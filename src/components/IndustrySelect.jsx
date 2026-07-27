@@ -7,10 +7,20 @@ import mascotCoach from '../../img/mascot-coach.png'
 import EmailVerifyBanner from './EmailVerifyBanner'
 import { INDUSTRIES } from '../lib/industries'
 
+// 업종마다 응대 예시(RulesInput.jsx의 INITIAL_RULES_BY_INDUSTRY)와 알바 훈련용 기본 시나리오
+// (server/src/lib/defaultScenarios.js)를 6개 다 채워뒀다(2026-07-27) — 예전엔 카페만 있어서 다른
+// 업종엔 "준비된 예시가 없다"고 떴는데, 이제 전부 준비돼 있다.
 const HINTS = {
   cafe: '카페를 선택하면 커스텀 음료·포장·매장 이용 관련 응대 예시가 다음 화면에 먼저 채워져요.',
+  convenience: '편의점을 선택하면 미성년자 확인·품절 안내 관련 응대 예시가 다음 화면에 먼저 채워져요.',
+  restaurant: '음식점·외식을 선택하면 웨이팅·재료 소진 관련 응대 예시가 다음 화면에 먼저 채워져요.',
+  mart: '마트·유통을 선택하면 가격 확인·반품 관련 응대 예시가 다음 화면에 먼저 채워져요.',
+  pcroom: 'PC방·오락실을 선택하면 이용시간·장비 문제 관련 응대 예시가 다음 화면에 먼저 채워져요.',
+  beauty: '뷰티·헤어를 선택하면 예약 지연·시술 변경 관련 응대 예시가 다음 화면에 먼저 채워져요.',
 }
-const DEFAULT_HINT = '이 업종은 아직 준비된 예시가 없어요. 카페 예시를 참고해서 직접 입력해주세요.'
+// 지금은 HINTS가 INDUSTRIES 6개를 다 커버해서 이 경로는 안 타지만, 나중에 업종이 추가되고
+// 예시를 아직 못 채웠을 때를 위한 안전장치로 남겨둔다.
+const DEFAULT_HINT = '이 업종은 아직 준비된 예시가 없어요. 직접 입력해주세요.'
 
 // 이 화면에서는 아직 매장이 없어서(다음 클릭 시 생성됨) 매장 있어야 의미 있는 링크는 눌러도
 // 갈 곳이 없다 — 회색으로 비활성화만 해서 "이런 메뉴들이 있다"는 건 보여준다.

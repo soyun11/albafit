@@ -4,7 +4,7 @@ import { requireAuth, requireRole } from '../middleware/requireAuth.js'
 import { getCustomerReplyForScenario, getOpeningLineForScenario } from '../lib/customerAgent.js'
 import { evaluateTurn } from '../lib/evaluator.js'
 import { runCrossCheck } from '../lib/evaluatorCrossCheck.js'
-import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload } from '../lib/sessionTurns.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts, decideTurnOutcome, buildSessionReportPayload } from '../lib/sessionTurns.js'
 import { belongsToStaff } from '../lib/staffMatch.js'
 import { findOwnedTurn, applyOwnerCorrection, buildTurnCalibrationView } from '../lib/evaluationCalibration.js'
 
@@ -136,6 +136,13 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
       previouslyMetItems,
     })
 
+    // 이 턴 이전까지(다른 turnNumber 전부 + 같은 turnNumber의 이전 재입력) 확정된 met 기준 —
+    // "이번 답이 여기에 없던 기준을 새로 채웠는가"(madeProgress)를 가리는 기준선이다.
+    const priorMetItems = new Set(
+      pickFinalAttempts(session.sessionTurns).flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
+    )
+    const madeProgress = evaluation.metItems.some((m) => m.met && !priorMetItems.has(m.item))
+
     const turn = await prisma.sessionTurn.create({
       data: {
         sessionId: session.id,
@@ -144,7 +151,10 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
         customerMessage: effectiveCustomerMessage,
         staffAnswer,
         evaluation,
-        passed: evaluation.passed,
+        // evaluation.passed(이 답 하나가 필수 기준을 전부 커버했는가)가 아니라 madeProgress를 저장한다 —
+        // 다음 요청의 isRetry 판정(위 110행)이 이 값을 그대로 쓰기 때문에, 아래 retryNeeded와 반드시
+        // 같은 기준이어야 한다(docs/multi-turn-conversation-fix.md).
+        passed: madeProgress,
       },
     })
 
@@ -164,58 +174,39 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
     const { maxHearts, heartsRemaining } = computeHearts([...session.sessionTurns, turn])
     const heartsExhausted = heartsRemaining <= 0
 
+    // everMetItems — 이 턴까지 포함해 세션 전체에서 한 번이라도 충족된 기준 전부(재입력 포함, 최종
+    // 확정 시도 기준). decideTurnOutcome의 allCriteriaMet 판정에 쓴다.
+    const everMetItems = new Set(
+      pickFinalAttempts([...session.sessionTurns, turn]).flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
+    )
+    const requiredItems = rubric.criteria.filter((c) => c.required).map((c) => c.item)
+
+    const outcome = decideTurnOutcome({ madeProgress, everMetItems, requiredItems, turnNumber, maxTurns: MAX_TURNS, heartsExhausted })
+    const { retryNeeded, completed, allCriteriaMet } = outcome
+
     let nextCustomerMessage = null
     let durationMinutes = null
-    let completed = false
-    let allCriteriaMet = false
-    let retryNeeded = false
 
-    if (heartsExhausted) {
-      // 하트를 다 썼다 — 지금 이 턴을 통과했는지와 무관하게 훈련 전체를 여기서 즉시 끝낸다.
-      completed = true
+    if (completed) {
       const completedAt = new Date()
       await prisma.trainingSession.update({
         where: { id: session.id },
         data: { status: 'completed', completedAt },
       })
+      // 리포트 화면의 "총 훈련 시간" — 예전엔 "18분"으로 고정돼있던 값을 실제 시작~완료 시각 차이로 계산.
       durationMinutes = Math.max(1, Math.round((completedAt - session.startedAt) / 60000))
-    } else {
-      // 하트가 남아있으면, 통과 못 한 턴은 재입력이 필요한 상태로 응답하고 턴을 넘기지 않는다 —
-      // 재입력 자체에는 더 이상 별도 상한이 없다(위 하트 계산이 사실상의 상한 역할을 한다).
-      retryNeeded = !evaluation.passed
+    } else if (!retryNeeded) {
+      // 진전은 있었지만 아직 필수 기준을 다 못 채웠고 턴 한도도 안 됐다 — 손님이 다음 대사를 한다.
+      // 손님 에이전트에는 화면에 실제로 보인 대화 그대로 넘긴다 — 재입력으로 답이 여러 번
+      // 나뉘었어도(방금 만든 turn까지 포함) 그 시도들을 다 포함해야, 손님이 이미 들은 내용을
+      // 다시 캐묻지 않는다(pickFinalAttempts는 리포트 집계처럼 "최종 결론 하나"만 필요할 때만 쓴다).
+      const history = buildConversationHistory([...session.sessionTurns, turn])
 
-      if (!retryNeeded) {
-        // 이 시나리오의 루브릭 기준을 세션 전체(턴을 넘나들며)에서 한 번이라도 다 충족했으면, 남은
-        // 턴을 억지로 더 채우지 않고 바로 끝낸다 — 이미 다 확인된 것을 손님이 계속 캐묻게 하지 않기 위해.
-        // turnNumber마다 최종 확정된 시도만 모아서(pickFinalAttempts) 그 위에서 충족 여부를 합친다.
-        const finalAttempts = pickFinalAttempts([...session.sessionTurns, turn])
-        const everMetItems = new Set(
-          finalAttempts.flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
-        )
-        allCriteriaMet = rubric.criteria.filter((c) => c.required).every((c) => everMetItems.has(c.item))
-
-        completed = allCriteriaMet || turnNumber >= MAX_TURNS
-        if (completed) {
-          const completedAt = new Date()
-          await prisma.trainingSession.update({
-            where: { id: session.id },
-            data: { status: 'completed', completedAt },
-          })
-          // 리포트 화면의 "총 훈련 시간" — 예전엔 "18분"으로 고정돼있던 값을 실제 시작~완료 시각 차이로 계산.
-          durationMinutes = Math.max(1, Math.round((completedAt - session.startedAt) / 60000))
-        } else {
-          // 손님 에이전트에는 화면에 실제로 보인 대화 그대로 넘긴다 — 재입력으로 답이 여러 번
-          // 나뉘었어도(방금 만든 turn까지 포함) 그 시도들을 다 포함해야, 손님이 이미 들은 내용을
-          // 다시 캐묻지 않는다(pickFinalAttempts는 리포트 집계처럼 "최종 결론 하나"만 필요할 때만 쓴다).
-          const history = buildConversationHistory([...session.sessionTurns, turn])
-
-          nextCustomerMessage = await getCustomerReplyForScenario({
-            situation: session.scenario.persona?.situation,
-            criteria: rubric.criteria,
-            history,
-          })
-        }
-      }
+      nextCustomerMessage = await getCustomerReplyForScenario({
+        situation: session.scenario.persona?.situation,
+        criteria: rubric.criteria,
+        history,
+      })
     }
 
     return res.status(201).json({

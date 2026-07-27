@@ -4,274 +4,358 @@ import AppNav from './AppNav'
 import mascotGreeting from '../../img/mascot-greeting.png'
 import mascotCoach from '../../img/mascot-coach.png'
 import mascotApprove from '../../img/mascot-approve.png'
-import mascotConfused from '../../img/mascot-confused.png'
-import { INDUSTRIES, INDUSTRY_SCENARIOS } from '../lib/industries'
-import { apiFetch } from '../lib/api'
+import { INDUSTRIES } from '../lib/industries'
+import { GUEST_TOUR_SCENARIOS } from '../lib/guestTourContent'
+import { INITIAL_RULES_BY_INDUSTRY } from './RulesInput'
 
-const MAX_TURNS = 3
-const RULES_PLACEHOLDER = '예: 미성년자에게 술·담배 판매 금지, 신분증 꼭 확인해요. 품절 상품은 재입고 시점을 안내해요.'
+const INVITE_PREVIEW = { name: '김민지', email: 'staff@example.com', password: 'welcome2026' }
 
-// 로그인·매장 연결 없이 규칙→루브릭 변환과 손님과의 대화를 실제로 체험해보는 화면.
-// 전부 이 컴포넌트의 로컬 state로만 굴러가고 서버에 아무것도 저장하지 않는다 — 새로고침하면 사라짐.
+// 다음에 뭘 눌러야 하는지 가리키는 주황색 커서 포인터 — 이모지는 폰트마다 렌더링이 달라져서(마우스
+// 이모지가 거의 안 보이는 경우도 있었음) 실제 커서 화살표 모양의 SVG를 직접 그린다. 클릭할 요소 쪽에
+// position:relative를 걸고 이 컴포넌트를 넣으면 오른쪽 아래에서 다가왔다 눌리는 애니메이션으로 보인다(GuestTry.css).
+function CursorHint() {
+  return (
+    <svg className="guest-cursor-hint" viewBox="-1 -1 14 21" width="26" height="34" aria-hidden="true">
+      <polygon
+        points="0,0 0,16 4,12.5 6.5,19 9,18 6.5,11.5 12,11.5"
+        fill="#fff"
+        stroke="#f5911e"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+// 로그인·매장 연결 없이, 실제 사장님 온보딩(1 업종·매뉴얼 → 2 규칙확인 → 3 루브릭승인 → 알바 초대)과
+// 그 뒤 알바가 로그인해서 훈련하는 흐름까지를 하나의 클릭 파이프라인으로 훑어보는 가이드 투어
+// (docs/guest-tour-redesign.md). 타이핑도 AI 호출도 없다 — 전부 정적 콘텐츠라 새로고침하면 처음부터.
 function GuestTry({ onNavigate }) {
-  const [step, setStep] = useState('industry') // industry | scenario | rules | rubric | chat
+  const [step, setStep] = useState('industry') // industry | rules | rubric | invite | scenario | tour
   const [industry, setIndustry] = useState(null)
-  const [scenarioType, setScenarioType] = useState(null)
-  const [scenarioTitle, setScenarioTitle] = useState('')
-  const [rawRulesText, setRawRulesText] = useState('')
-  const [criteria, setCriteria] = useState([])
-  const [checklist, setChecklist] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [converting, setConverting] = useState(false)
+  const [rubricActiveIndex, setRubricActiveIndex] = useState(0)
+  const [approvedSet, setApprovedSet] = useState(new Set())
+  const [inviting, setInviting] = useState(false)
+  const [invited, setInvited] = useState(false)
+  const [scenario, setScenario] = useState(null)
+  const [revealCount, setRevealCount] = useState(0)
 
-  const [messages, setMessages] = useState([])
-  const [inputValue, setInputValue] = useState('')
-  const [turnIndex, setTurnIndex] = useState(0)
-  const [feedback, setFeedback] = useState(null)
-  const [submitting, setSubmitting] = useState(false)
-  const [completed, setCompleted] = useState(false)
+  const scenarios = GUEST_TOUR_SCENARIOS[industry] ?? []
+  const rules = INITIAL_RULES_BY_INDUSTRY[industry] ?? []
+  const criteria = scenario?.criteria ?? []
+  const isDone = revealCount >= criteria.length
+  // 매장 매뉴얼 입력칸에 이미 타이핑돼있는 것처럼 보여줄 예시 — 새로 쓰지 않고, 다음 화면(rules)에
+  // 카드로 나오는 규칙 예시 중 앞 2개를 문장으로 이어붙인다. "이 텍스트를 AI가 읽어서 옆 카드들로
+  // 정리한다"는 게 실제로 보이게 하려는 것.
+  const manualPreview = rules
+    .filter((r) => r.enabled)
+    .slice(0, 2)
+    .map((r) => r.example)
+    .join(' ')
 
-  function pickIndustry(key) {
+  const activeRubric = scenarios[rubricActiveIndex]
+  const allApproved = scenarios.length > 0 && approvedSet.size === scenarios.length
+
+  function selectIndustry(key) {
     setIndustry(key)
-    setStep('scenario')
   }
 
-  function pickScenario(scenario) {
-    setScenarioType(scenario.key)
-    setScenarioTitle(scenario.title)
-    setStep('rules')
-  }
-
-  async function handleGenerateRubric(event) {
-    event.preventDefault()
-    if (!rawRulesText.trim()) {
-      setError('규칙을 한 줄이라도 적어주세요.')
-      return
-    }
-    setError('')
-    setLoading(true)
-    try {
-      const data = await apiFetch('/api/guest/rubric', {
-        method: 'POST',
-        auth: false,
-        body: { scenarioType, rawRulesText: rawRulesText.trim() },
-      })
-      setCriteria(data.criteria)
-      setChecklist(data.criteria.map((c, i) => ({ id: i, label: c.item, status: 'wait' })))
+  function confirmRules() {
+    setConverting(true)
+    setTimeout(() => {
+      setConverting(false)
+      setRubricActiveIndex(0)
+      setApprovedSet(new Set())
       setStep('rubric')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+    }, 700)
   }
 
-  async function startChat() {
-    setError('')
-    setLoading(true)
-    try {
-      const data = await apiFetch(`/api/guest/opening?scenarioType=${scenarioType}`, { auth: false })
-      setMessages([{ sender: 'customer', text: data.openingLine }])
-      setStep('chat')
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
+  function approveRubric(index) {
+    setApprovedSet((prev) => new Set(prev).add(index))
+    if (index < scenarios.length - 1) setRubricActiveIndex(index + 1)
   }
 
-  async function handleSubmit(event) {
-    event.preventDefault()
-    const trimmed = inputValue.trim()
-    if (!trimmed || submitting || completed) return
-
-    const historySoFar = messages
-    setMessages((prev) => [...prev, { sender: 'staff', text: trimmed }])
-    setInputValue('')
-    setSubmitting(true)
-
-    try {
-      const data = await apiFetch('/api/guest/turn', {
-        method: 'POST',
-        auth: false,
-        body: { scenarioType, criteria, messages: historySoFar, staffAnswer: trimmed },
-      })
-
-      const metItemLabels = new Set(data.evaluation.metItems.filter((m) => m.met).map((m) => m.item))
-      setChecklist((prev) =>
-        prev.map((item) => (metItemLabels.has(item.label) ? { ...item, status: 'ok' } : item))
-      )
-      setFeedback({ type: data.evaluation.passed ? 'approve' : 'confused', text: data.evaluation.feedback })
-
-      if (data.completed) {
-        setCompleted(true)
-      } else {
-        setTurnIndex((prev) => prev + 1)
-        setTimeout(() => {
-          setMessages((prev) => [...prev, { sender: 'customer', text: data.nextCustomerMessage }])
-        }, 600)
-      }
-    } catch (err) {
-      setFeedback({ type: 'confused', text: err.message })
-    } finally {
-      setSubmitting(false)
-    }
+  function goToInvite() {
+    setInviting(false)
+    setInvited(false)
+    setStep('invite')
   }
 
-  const scenarios = INDUSTRY_SCENARIOS[industry] ?? []
-  const passedCount = checklist.filter((item) => item.status === 'ok').length
-  const nextWaitItem = checklist.find((item) => item.status === 'wait')
-  const hint = nextWaitItem ? criteria[nextWaitItem.id]?.good_example : '체크리스트를 다 채웠어요!'
+  function createStaffAccount() {
+    setInviting(true)
+    setTimeout(() => {
+      setInviting(false)
+      setInvited(true)
+    }, 600)
+  }
+
+  function pickScenario(picked) {
+    setScenario(picked)
+    setRevealCount(0)
+    setStep('tour')
+  }
+
+  function revealNext() {
+    setRevealCount((prev) => Math.min(prev + 1, criteria.length))
+  }
 
   return (
     <div className="guest-page">
       <AppNav role="guest" onNavigate={onNavigate} />
 
       <div className="guest-wrap">
-        <div className="guest-mode-banner mono">비회원 체험 모드 · 대화 내용은 저장되지 않아요</div>
+        <div className="guest-mode-banner mono">비회원 체험 모드 · 미리 준비된 예시로 둘러보는 투어예요</div>
 
         {step === 'industry' && (
           <>
             <img className="mascot-hero" src={mascotGreeting} alt="" />
-            <div className="eyebrow mono">체험하기 · 1/4</div>
-            <h1>어떤 업종을 체험해볼까요?</h1>
+            <div className="eyebrow mono">체험하기 · 1/6</div>
+            <h1>어떤 업종이신가요?</h1>
             <div className="guest-grid">
-              {INDUSTRIES.map((ind) => (
-                <button key={ind.key} type="button" className="guest-card glass" onClick={() => pickIndustry(ind.key)}>
+              {INDUSTRIES.map((ind, i) => (
+                <button
+                  key={ind.key}
+                  type="button"
+                  className={`guest-card glass ${industry === ind.key ? 'selected' : ''}`}
+                  onClick={() => selectIndustry(ind.key)}
+                >
                   <span className="guest-card-icon">{ind.icon}</span>
                   <span className="guest-card-title">{ind.label}</span>
+                  {!industry && i === 0 && <CursorHint />}
                 </button>
               ))}
             </div>
+
+            {industry && (
+              <div className="guest-manual-card glass">
+                <div className="guest-manual-label mono">+ 매장 매뉴얼 · 규정 입력 (선택)</div>
+                <div className="guest-manual-text">{manualPreview}</div>
+                <p className="guest-manual-note">사장님이 이렇게 자유롭게 규칙을 적어두면, AI가 다음 화면에서 카드로 정리해드려요.</p>
+                <button type="button" className="btn-primary btn-pulse" onClick={() => setStep('rules')}>
+                  다음 →
+                  <CursorHint />
+                </button>
+              </div>
+            )}
+          </>
+        )}
+
+        {step === 'rules' && (
+          <>
+            <img className="mascot-hero" src={mascotGreeting} alt="" />
+            <div className="eyebrow mono">체험하기 · 2/6</div>
+            <h1>사장님이 이런 규칙을 입력해두면</h1>
+            <p className="guest-sub">업종별로 자주 쓰는 규칙 예시예요. 사장님은 이 화면에서 문장을 고치거나 켜고 끄면서 우리 매장 기준으로 확정해요.</p>
+            <div className="guest-rules-list">
+              {rules.map((rule) => (
+                <div key={rule.id} className="guest-rule-card glass">
+                  <div className="guest-rule-label mono">{rule.label}</div>
+                  <div className="guest-rule-title">{rule.title}</div>
+                  <div className="guest-rule-example">{rule.example}</div>
+                </div>
+              ))}
+            </div>
+            {converting ? (
+              <p className="guest-converting mono">AI가 규칙을 상황별로 나누는 중...</p>
+            ) : (
+              <button type="button" className="btn-primary btn-pulse" onClick={confirmRules}>
+                이 기준으로 확정하기 →
+                <CursorHint />
+              </button>
+            )}
+          </>
+        )}
+
+        {step === 'rubric' && activeRubric && (
+          <>
+            <img className="mascot-hero" src={mascotCoach} alt="" />
+            <div className="eyebrow mono">체험하기 · 3/6</div>
+            <h1>이 기준으로 채점해도 될까요?</h1>
+            <p className="guest-sub">방금 정한 규칙을 보고 AI가 실전 상황 {scenarios.length}개를 제안했어요. 시나리오별로 하나씩 확인하고 승인해요.</p>
+
+            <div className="guest-rubric-tabs">
+              {scenarios.map((s, i) => (
+                <button
+                  key={s.title}
+                  type="button"
+                  className={`guest-rubric-tab ${i === rubricActiveIndex ? 'active' : ''}`}
+                  onClick={() => setRubricActiveIndex(i)}
+                >
+                  {s.title}
+                  {approvedSet.has(i) ? ' ✓' : ''}
+                </button>
+              ))}
+            </div>
+
+            <div className="guest-situation-block glass">
+              <p><strong>상황</strong> · {activeRubric.situation}</p>
+              <p><strong>손님이 이렇게 시작해요</strong> · &ldquo;{activeRubric.opening}&rdquo;</p>
+            </div>
+
+            {activeRubric.criteria.map((c, i) => (
+              <div key={i} className="guest-criterion-card glass">
+                <div className="guest-criterion-top">
+                  <span className="guest-criterion-title">{c.item}</span>
+                  <span className={`guest-req-badge ${c.required ? '' : 'optional'}`}>{c.required ? '필수' : '선택'}</span>
+                </div>
+                <div className="guest-example-row good">
+                  <span>✓</span>
+                  <span>{c.good_example}</span>
+                </div>
+                <div className="guest-example-row bad">
+                  <span>✗</span>
+                  <span>{c.bad_example}</span>
+                </div>
+              </div>
+            ))}
+
+            {approvedSet.has(rubricActiveIndex) ? (
+              <p className="guest-approved-note">이 시나리오는 승인 완료됐어요.</p>
+            ) : (
+              <button type="button" className="btn-primary btn-pulse" onClick={() => approveRubric(rubricActiveIndex)}>
+                이 기준으로 승인하기
+                <CursorHint />
+              </button>
+            )}
+
+            {allApproved && (
+              <div className="guest-done-card glass">
+                <img src={mascotApprove} alt="" />
+                <h3>시나리오 {scenarios.length}개 모두 승인됐어요</h3>
+                <p>이제부터 이 기준으로 알바 훈련·채점이 진행돼요.</p>
+                <button type="button" className="btn-primary btn-pulse" onClick={goToInvite}>
+                  알바 초대하기 →
+                  <CursorHint />
+                </button>
+              </div>
+            )}
+
+            <button type="button" className="btn-ghost" onClick={() => setStep('rules')}>
+              ← 규칙 다시 보기
+            </button>
+          </>
+        )}
+
+        {step === 'invite' && (
+          <>
+            <img className="mascot-hero" src={mascotGreeting} alt="" />
+            <div className="eyebrow mono">체험하기 · 4/6</div>
+            <h1>새 알바 계정을 만들어보세요</h1>
+            <p className="guest-sub">이메일과 초기 비밀번호를 정해서 계정을 만들면, 그 정보를 알바에게 직접 알려주세요.</p>
+
+            <div className="guest-invite-card glass">
+              <div className="guest-invite-field">
+                <label>이름</label>
+                <input type="text" value={INVITE_PREVIEW.name} disabled />
+              </div>
+              <div className="guest-invite-field">
+                <label>이메일</label>
+                <input type="text" value={INVITE_PREVIEW.email} disabled />
+              </div>
+              <div className="guest-invite-field">
+                <label>초기 비밀번호</label>
+                <input type="text" value={INVITE_PREVIEW.password} disabled />
+              </div>
+
+              {invited ? (
+                <div className="guest-invitee-row">
+                  <div className="guest-avatar-initial">{INVITE_PREVIEW.name.slice(0, 2)}</div>
+                  <div>
+                    <div className="guest-invitee-name">{INVITE_PREVIEW.name}</div>
+                    <div className="guest-invitee-meta">{INVITE_PREVIEW.email}</div>
+                  </div>
+                  <span className="guest-status-chip">계정 생성됨</span>
+                </div>
+              ) : (
+                <button type="button" className="btn-primary btn-pulse" onClick={createStaffAccount} disabled={inviting}>
+                  {inviting ? '만드는 중...' : '알바 계정 만들기'}
+                  {!inviting && <CursorHint />}
+                </button>
+              )}
+            </div>
+
+            {invited && (
+              <button type="button" className="btn-primary btn-pulse" onClick={() => setStep('scenario')}>
+                이제 알바 입장에서 볼까요? →
+                <CursorHint />
+              </button>
+            )}
+
+            <button type="button" className="btn-ghost" onClick={() => setStep('rubric')}>
+              ← 승인 화면 다시 보기
+            </button>
           </>
         )}
 
         {step === 'scenario' && (
           <>
             <img className="mascot-hero" src={mascotGreeting} alt="" />
-            <div className="eyebrow mono">체험하기 · 2/4</div>
-            <h1>어떤 상황을 연습해볼까요?</h1>
+            <div className="eyebrow mono">체험하기 · 5/6</div>
+            <h1>이제 알바가 로그인하면</h1>
+            <p className="guest-sub">방금 승인한 기준 그대로, 알바는 이 상황들 중 하나를 골라 훈련을 시작해요.</p>
             <div className="guest-grid">
-              {scenarios.map((scenario) => (
-                <button
-                  key={scenario.key}
-                  type="button"
-                  className="guest-card glass"
-                  onClick={() => pickScenario(scenario)}
-                >
-                  <span className="guest-card-icon">{scenario.icon}</span>
-                  <span className="guest-card-title">{scenario.title}</span>
-                  <span className="guest-card-desc">{scenario.desc}</span>
+              {scenarios.map((s, i) => (
+                <button key={s.title} type="button" className="guest-card glass" onClick={() => pickScenario(s)}>
+                  <span className="guest-card-icon">{s.icon}</span>
+                  <span className="guest-card-title">{s.title}</span>
+                  <span className="guest-card-desc">{s.situation}</span>
+                  {i === 0 && <CursorHint />}
                 </button>
               ))}
             </div>
-            <button type="button" className="btn-ghost" onClick={() => setStep('industry')}>
-              ← 업종 다시 고르기
+            <button type="button" className="btn-ghost" onClick={() => setStep('invite')}>
+              ← 계정 만들기 화면으로
             </button>
           </>
         )}
 
-        {step === 'rules' && (
-          <>
-            <img className="mascot-hero" src={mascotCoach} alt="" />
-            <div className="eyebrow mono">체험하기 · 3/4 · {scenarioTitle}</div>
-            <h1>이 상황에 적용할 규칙을 적어보세요</h1>
-            <p className="guest-sub">
-              실제 매장 규정이 아니어도 괜찮아요 — 자유롭게 적어보시면 AI가 진짜 채점 기준으로 바꿔드려요.
-            </p>
-            <form className="guest-card glass guest-form" onSubmit={handleGenerateRubric}>
-              <textarea
-                className="guest-textarea"
-                value={rawRulesText}
-                onChange={(event) => setRawRulesText(event.target.value)}
-                placeholder={RULES_PLACEHOLDER}
-                rows={5}
-              />
-              {error && <p className="guest-error">{error}</p>}
-              <button type="submit" className="btn-primary" disabled={loading}>
-                {loading ? 'AI가 채점 기준 만드는 중...' : '채점 기준 만들기 →'}
-              </button>
-            </form>
-            <button type="button" className="btn-ghost" onClick={() => setStep('scenario')}>
-              ← 시나리오 다시 고르기
-            </button>
-          </>
-        )}
-
-        {step === 'rubric' && (
-          <>
-            <img className="mascot-hero" src={mascotApprove} alt="" />
-            <div className="eyebrow mono">체험하기 · 4/4 · {scenarioTitle}</div>
-            <h1>AI가 만든 채점 기준이에요</h1>
-            {criteria.map((c, i) => (
-              <div key={i} className="guest-criterion glass">
-                <div className="guest-criterion-top">
-                  <span className="guest-criterion-title">{c.item}</span>
-                  <span className={`guest-req-badge ${c.required ? '' : 'optional'}`}>
-                    {c.required ? '필수' : '선택'}
-                  </span>
-                </div>
-                <div className="guest-example good">✓ {c.good_example}</div>
-                <div className="guest-example bad">✗ {c.bad_example}</div>
-              </div>
-            ))}
-            {error && <p className="guest-error">{error}</p>}
-            <button type="button" className="btn-primary" onClick={startChat} disabled={loading}>
-              {loading ? '손님 준비 중...' : '이 기준으로 대화 체험하기 →'}
-            </button>
-          </>
-        )}
-
-        {step === 'chat' && (
+        {step === 'tour' && scenario && (
           <div className="guest-session">
             <div className="guest-progress-row">
               <div className="guest-progress-track">
-                <div className="guest-progress-fill" style={{ width: `${(turnIndex / MAX_TURNS) * 100}%` }} />
+                <div className="guest-progress-fill" style={{ width: `${(revealCount / criteria.length) * 100}%` }} />
               </div>
-              <span className="guest-progress-label">{turnIndex + 1} / {MAX_TURNS} 상황</span>
+              <span className="guest-progress-label">{revealCount} / {criteria.length} 포인트</span>
             </div>
 
             <div className="guest-session-grid">
               <section className="guest-chat-card glass">
-                <span className="guest-scenario-tag">{scenarioTitle}</span>
+                <span className="guest-scenario-tag">체험하기 · 6/6 · {scenario.title}</span>
 
-                {messages.map((message, index) => (
-                  <div key={index} className={`guest-msg ${message.sender}`}>
-                    {message.text}
+                <div className="guest-msg customer">{scenario.opening}</div>
+
+                {criteria.slice(0, revealCount).map((c, i) => (
+                  <div key={i} className="guest-exchange">
+                    <div className="guest-msg staff">{c.good_example}</div>
+                    <div className="guest-msg customer">{c.reaction}</div>
                   </div>
                 ))}
 
-                {feedback && (
-                  <div className={`guest-feedback-bubble ${feedback.type}`}>
-                    <img src={feedback.type === 'approve' ? mascotApprove : mascotConfused} alt="" />
-                    <p>{feedback.text}</p>
+                {revealCount > 0 && (
+                  <div className="guest-feedback-bubble approve">
+                    <img src={mascotApprove} alt="" />
+                    <p>"{criteria[revealCount - 1].item}" 포인트를 챙겼어요!</p>
                   </div>
                 )}
 
-                {completed ? (
+                {isDone ? (
                   <div className="guest-done-card">
                     <img src={mascotApprove} alt="" />
-                    <h3>체험 끝! 어떠셨어요?</h3>
-                    <p>실제 매장으로 등록하면, 우리 매장 진짜 규칙으로 알바를 훈련시킬 수 있어요.</p>
+                    <h3>투어 끝! 어떠셨어요?</h3>
+                    <p>실제 매장으로 등록하면, 우리 매장 진짜 규칙으로 AI가 알바를 이렇게 훈련시켜드려요.</p>
                     <button type="button" className="btn-primary" onClick={() => onNavigate('signup')}>
                       무료로 시작하기 →
                     </button>
-                    <button type="button" className="btn-ghost" onClick={() => onNavigate('home')}>
-                      홈으로
+                    <button type="button" className="btn-ghost" onClick={() => setStep('scenario')}>
+                      다른 상황도 둘러보기
                     </button>
                   </div>
                 ) : (
-                  <form className="guest-input-bar" onSubmit={handleSubmit}>
-                    <input
-                      value={inputValue}
-                      onChange={(event) => setInputValue(event.target.value)}
-                      placeholder="답변을 입력하세요..."
-                      disabled={submitting}
-                    />
-                    <button type="submit" disabled={submitting}>
-                      {submitting ? '채점 중...' : '보내기'}
-                    </button>
-                  </form>
+                  <button type="button" className="btn-primary btn-pulse" onClick={revealNext}>
+                    직원이 이렇게 답하면 좋아요
+                    <CursorHint />
+                  </button>
                 )}
               </section>
 
@@ -280,20 +364,21 @@ function GuestTry({ onNavigate }) {
                   <img src={mascotCoach} alt="" />
                   <div>
                     <h4>AI 트레이너 힌트</h4>
-                    <p>{hint}</p>
+                    <p>{isDone ? '체크리스트를 다 채웠어요!' : '버튼을 눌러 모범 답변을 하나씩 확인해보세요.'}</p>
                   </div>
                 </div>
                 <div className="guest-checklist glass">
-                  {checklist.map((item) => (
-                    <div key={item.id} className="guest-checklist-item">
-                      <div className={`guest-dot ${item.status}`} />
-                      {item.label}
+                  {criteria.map((c, i) => (
+                    <div key={i} className="guest-checklist-item">
+                      <div className={`guest-dot ${i < revealCount ? 'ok' : ''}`} />
+                      <span className="guest-checklist-label">{c.item}</span>
+                      <span className={`guest-req-badge ${c.required ? '' : 'optional'}`}>{c.required ? '필수' : '선택'}</span>
                     </div>
                   ))}
                 </div>
                 <div className="guest-metric glass">
-                  <span>기준 충족</span>
-                  <b>{passedCount} / {checklist.length}</b>
+                  <span>포인트 확인</span>
+                  <b>{revealCount} / {criteria.length}</b>
                 </div>
               </aside>
             </div>

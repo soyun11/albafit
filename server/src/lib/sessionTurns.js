@@ -51,6 +51,25 @@ function countOffTopicAttempts(sessionTurns) {
   return offTopicCount
 }
 
+// 이번 턴 제출이 세션을 어떻게 진행시켜야 하는지 판정한다(docs/multi-turn-conversation-fix.md).
+// "이번 답 하나가 필수 기준을 전부 커버했는가"가 아니라 "이번 답이 이전에 없던 기준을 하나라도 새로
+// 채웠는가"(madeProgress)로 재입력 여부를 가른다 — 그래야 부분 진전일 때 같은 질문을 무한 재입력시키지
+// 않고 손님이 다음 대사로 넘어갈 수 있다(그 전엔 이 둘의 기준이 같아서, 통과하는 순간 항상 전체
+// 완료 조건도 같이 만족돼버려 손님이 다음 말을 하는 코드 경로가 사실상 실행될 수 없었다).
+// @param {{ madeProgress: boolean, everMetItems: Set<string>, requiredItems: string[], turnNumber: number, maxTurns: number, heartsExhausted: boolean }} params
+// @returns {{ retryNeeded: boolean, completed: boolean, allCriteriaMet: boolean }}
+export function decideTurnOutcome({ madeProgress, everMetItems, requiredItems, turnNumber, maxTurns, heartsExhausted }) {
+  if (heartsExhausted) {
+    return { retryNeeded: false, completed: true, allCriteriaMet: false }
+  }
+  if (!madeProgress) {
+    return { retryNeeded: true, completed: false, allCriteriaMet: false }
+  }
+
+  const allCriteriaMet = requiredItems.every((item) => everMetItems.has(item))
+  return { retryNeeded: false, completed: allCriteriaMet || turnNumber >= maxTurns, allCriteriaMet }
+}
+
 // 하트 1개당 루브릭 기준 몇 개분인지 — 기준이 많은(복잡한) 시나리오일수록 하트도 비례해서 늘어난다.
 export const HEARTS_PER_CRITERION = 2
 
