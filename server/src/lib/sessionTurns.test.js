@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload, buildSessionSummary } from './sessionTurns.js'
+import { pickFinalAttempts, buildConversationHistory, computeHearts, buildSessionReportPayload, buildSessionSummary, decideTurnOutcome } from './sessionTurns.js'
 
 // describe는 테스트를 묶는 단위. 보통 함수 하나당 하나씩.
 describe('pickFinalAttempts', ()=>{
@@ -128,5 +128,77 @@ describe('buildSessionSummary', () => {
     expect(result.passedCount).toBe(0)
     expect(result.totalCount).toBe(0)
     expect(result.score).toBeNull()
+  })
+})
+
+// 버그: 예전엔 "이번 답 하나가 필수 기준을 전부 커버했는가"로 재입력을 판정해서, 통과하는 순간
+// 항상 세션도 같이 끝나버렸다(손님이 다음 대사를 할 기회가 코드상 존재하지 않았음).
+// docs/multi-turn-conversation-fix.md — "이번 답이 뭔가 새로 채웠는가"로 기준을 바꾼다.
+describe('decideTurnOutcome', () => {
+  const requiredItems = ['사과', '안내']
+
+  it('하트가 소진되면 진전 여부와 무관하게 즉시 종료된다', () => {
+    const result = decideTurnOutcome({
+      madeProgress: false,
+      everMetItems: new Set(),
+      requiredItems,
+      turnNumber: 1,
+      maxTurns: 3,
+      heartsExhausted: true,
+    })
+
+    expect(result).toEqual({ retryNeeded: false, completed: true, allCriteriaMet: false })
+  })
+
+  it('아무 기준도 새로 못 채우면 같은 턴에 재입력이 필요하다', () => {
+    const result = decideTurnOutcome({
+      madeProgress: false,
+      everMetItems: new Set(),
+      requiredItems,
+      turnNumber: 1,
+      maxTurns: 3,
+      heartsExhausted: false,
+    })
+
+    expect(result).toEqual({ retryNeeded: true, completed: false, allCriteriaMet: false })
+  })
+
+  it('일부 기준만 새로 채웠고 턴 한도 전이면 재입력 없이 다음 손님 대사로 넘어간다', () => {
+    const result = decideTurnOutcome({
+      madeProgress: true,
+      everMetItems: new Set(['사과']), // '안내'는 아직 미충족
+      requiredItems,
+      turnNumber: 1,
+      maxTurns: 3,
+      heartsExhausted: false,
+    })
+
+    expect(result).toEqual({ retryNeeded: false, completed: false, allCriteriaMet: false })
+  })
+
+  it('필수 기준을 다 채우면 재입력 없이 바로 완료된다', () => {
+    const result = decideTurnOutcome({
+      madeProgress: true,
+      everMetItems: new Set(['사과', '안내']),
+      requiredItems,
+      turnNumber: 1,
+      maxTurns: 3,
+      heartsExhausted: false,
+    })
+
+    expect(result).toEqual({ retryNeeded: false, completed: true, allCriteriaMet: true })
+  })
+
+  it('필수 기준을 다 못 채웠어도 턴 한도에 도달하면 강제 종료된다', () => {
+    const result = decideTurnOutcome({
+      madeProgress: true,
+      everMetItems: new Set(['사과']),
+      requiredItems,
+      turnNumber: 3,
+      maxTurns: 3,
+      heartsExhausted: false,
+    })
+
+    expect(result).toEqual({ retryNeeded: false, completed: true, allCriteriaMet: false })
   })
 })

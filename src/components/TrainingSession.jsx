@@ -117,8 +117,10 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
           text: `${data.evaluation.feedback} 다시 답해볼까요?`,
         })
       } else {
+        // 여기 도달했다는 건 이미 위에서 data.retryNeeded가 false로 확인된 상태 — 재입력이 필요할
+        // 때만 confused를 보여주고, 진전이 있었으면(완료든 다음 턴이든) 항상 approve로 보여준다.
         setFeedback({
-          type: data.evaluation.passed ? 'approve' : 'confused',
+          type: 'approve',
           text: data.evaluation.feedback,
         })
 
