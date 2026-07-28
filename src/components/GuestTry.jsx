@@ -319,6 +319,15 @@ function GuestTry({ onNavigate }) {
               <span className="guest-progress-label">{revealCount} / {criteria.length} 포인트</span>
             </div>
 
+            <div className="guest-hearts-block">
+              <div className="guest-hearts-row" aria-label={`하트 ${criteria.length * 2} / ${criteria.length * 2}`}>
+                {Array.from({ length: criteria.length * 2 }, (_, i) => (
+                  <span key={i} className="guest-heart full">♥</span>
+                ))}
+              </div>
+              <p className="guest-hearts-hint">모범 답변만 보여드리는 투어라 하트가 줄어들 일이 없어요. 실제 훈련에선 이 하트가 재입력 기회예요.</p>
+            </div>
+
             <div className="guest-session-grid">
               <section className="guest-chat-card glass">
                 <span className="guest-scenario-tag">체험하기 · 6/6 · {scenario.title}</span>
