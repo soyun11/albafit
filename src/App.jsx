@@ -175,11 +175,11 @@ function App() {
     setScreen('training')
   }
 
-  function handleTrainingFinish(checklist, scenarioTag, durationMinutes, heartsRemaining, maxHearts) {
+  function handleTrainingFinish(checklist, scenarioTag, durationSeconds, heartsRemaining, maxHearts) {
     setTrainingResult({
       checklist,
       scenarioTag,
-      durationMinutes,
+      durationSeconds,
       industry: user?.store?.industry,
       heartsRemaining,
       maxHearts,
@@ -197,7 +197,7 @@ function App() {
       setTrainingResult({
         checklist: data.checklist,
         scenarioTag: data.scenarioTitle,
-        durationMinutes: data.durationMinutes,
+        durationSeconds: data.durationSeconds,
         industry: data.industry,
         heartsRemaining: data.heartsRemaining,
         maxHearts: data.maxHearts,
@@ -219,7 +219,7 @@ function App() {
       setTrainingResult({
         checklist: data.checklist,
         scenarioTag: data.scenarioTitle,
-        durationMinutes: data.durationMinutes,
+        durationSeconds: data.durationSeconds,
         industry: data.industry,
         heartsRemaining: data.heartsRemaining,
         maxHearts: data.maxHearts,
@@ -428,7 +428,7 @@ function App() {
         onRetry={() => setScreen('scenario')}
         checklist={trainingResult?.checklist}
         scenarioTag={trainingResult?.scenarioTag}
-        durationMinutes={trainingResult?.durationMinutes}
+        durationSeconds={trainingResult?.durationSeconds}
         industry={trainingResult?.industry}
         heartsRemaining={trainingResult?.heartsRemaining}
         maxHearts={trainingResult?.maxHearts}

@@ -13,7 +13,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "test": "vitest run"
+    "test": "vitest run",
+    "admin": "node scripts/admin.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.11.0",

@@ -56,9 +56,13 @@ function countOffTopicAttempts(sessionTurns) {
 // 채웠는가"(madeProgress)로 재입력 여부를 가른다 — 그래야 부분 진전일 때 같은 질문을 무한 재입력시키지
 // 않고 손님이 다음 대사로 넘어갈 수 있다(그 전엔 이 둘의 기준이 같아서, 통과하는 순간 항상 전체
 // 완료 조건도 같이 만족돼버려 손님이 다음 말을 하는 코드 경로가 사실상 실행될 수 없었다).
-// @param {{ madeProgress: boolean, everMetItems: Set<string>, requiredItems: string[], turnNumber: number, maxTurns: number, heartsExhausted: boolean }} params
+// 턴 개수 자체에는 상한을 두지 않는다(예전엔 MAX_TURNS로 강제 종료했었는데, 필수 기준이 4개인
+// AI 생성 루브릭에서 알바가 실수 하나 없이 진전해도 3턴 만에 다 못 채우는 문제가 있었다 —
+// docs/multi-turn-conversation-fix.md). 하트가 "나쁜(진전 없는) 시도" 횟수를, allCriteriaMet이
+// "충분히 진전했는지"를 이미 각자 책임지고 있어서, 둘 다 문제없다면 세션이 계속 이어지는 게 맞다.
+// @param {{ madeProgress: boolean, everMetItems: Set<string>, requiredItems: string[], heartsExhausted: boolean }} params
 // @returns {{ retryNeeded: boolean, completed: boolean, allCriteriaMet: boolean }}
-export function decideTurnOutcome({ madeProgress, everMetItems, requiredItems, turnNumber, maxTurns, heartsExhausted }) {
+export function decideTurnOutcome({ madeProgress, everMetItems, requiredItems, heartsExhausted }) {
   if (heartsExhausted) {
     return { retryNeeded: false, completed: true, allCriteriaMet: false }
   }
@@ -67,7 +71,7 @@ export function decideTurnOutcome({ madeProgress, everMetItems, requiredItems, t
   }
 
   const allCriteriaMet = requiredItems.every((item) => everMetItems.has(item))
-  return { retryNeeded: false, completed: allCriteriaMet || turnNumber >= maxTurns, allCriteriaMet }
+  return { retryNeeded: false, completed: allCriteriaMet, allCriteriaMet }
 }
 
 // 하트 1개당 루브릭 기준 몇 개분인지 — 기준이 많은(복잡한) 시나리오일수록 하트도 비례해서 늘어난다.
@@ -110,16 +114,14 @@ function summarizeSessionTurns(sessionTurns) {
 export function buildSessionReportPayload({ session, staffName, industry }) {
   const { allLabels, metLabels, maxHearts, heartsRemaining } = summarizeSessionTurns(session.sessionTurns)
   const checklist = [...allLabels].map((label) => ({ label, status: metLabels.has(label) ? 'ok' : 'wait' }))
-  const durationMinutes = session.completedAt
-    ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
-    : null
+  const durationSeconds = session.completedAt ? Math.round((session.completedAt - session.startedAt) / 1000) : null
 
   return {
     sessionId: session.id,
     checklist,
     scenarioTitle: session.scenario.title,
     staffName,
-    durationMinutes,
+    durationSeconds,
     industry,
     heartsRemaining,
     maxHearts,

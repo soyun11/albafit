@@ -25,12 +25,11 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
   const [inputValue, setInputValue] = useState('')
   const [feedback, setFeedback] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-  // celebrating: 훈련이 끝나서(기준 다 충족 or 3턴 소진) 결과 화면으로 넘어가기 직전, 축하 배너를
+  // celebrating: 훈련이 끝나서(기준 다 충족 or 하트 소진) 결과 화면으로 넘어가기 직전, 축하 배너를
   // 잠깐 보여주는 상태. 이 상태가 되면 더 이상 입력을 못 받고, 잠시 후 자동으로 리포트로 이동한다.
   const [celebrating, setCelebrating] = useState(false)
-  const [allCriteriaMet, setAllCriteriaMet] = useState(false)
   const [heartsExhausted, setHeartsExhausted] = useState(false)
-  const [durationMinutes, setDurationMinutes] = useState(null)
+  const [durationSeconds, setDurationSeconds] = useState(null)
   const [maxHearts, setMaxHearts] = useState(0)
   const [heartsRemaining, setHeartsRemaining] = useState(0)
 
@@ -106,8 +105,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
         // 하트를 다 썼다 — 이번 답을 통과했는지와 무관하게 여기서 바로 끝난다.
         setFeedback({ type: 'confused', text: data.evaluation.feedback })
         setHeartsExhausted(true)
-        setAllCriteriaMet(false)
-        setDurationMinutes(data.durationMinutes)
+        setDurationSeconds(data.durationSeconds)
         setCelebrating(true)
       } else if (data.retryNeeded) {
         // 같은 손님 질문에 다시 답할 차례 — turnIndex/currentCustomerMessage를 그대로 둬서 다음 제출도
@@ -125,10 +123,9 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
         })
 
         if (data.completed) {
-          // 기준을 다 채웠으면(또는 3턴을 다 썼으면) 남은 상황을 억지로 더 진행하지 않고 바로 끝낸다.
+          // 필수 기준을 다 채웠으면(하트 소진이 아닌 이 분기에서 completed는 항상 이 경우다) 바로 끝낸다.
           // 축하 배너를 보여주고, 사용자가 "결과 확인하기" 버튼을 눌러야 리포트 화면으로 넘어간다.
-          setAllCriteriaMet(data.allCriteriaMet)
-          setDurationMinutes(data.durationMinutes)
+          setDurationSeconds(data.durationSeconds)
           setCelebrating(true)
         } else {
           setTimeout(() => {
@@ -156,7 +153,7 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
     if (sessionId) {
       apiFetch(`/api/sessions/${sessionId}/abandon`, { method: 'POST' }).catch(() => {})
     }
-    onFinish?.(checklist, scenarioTitle, durationMinutes, heartsRemaining, maxHearts)
+    onFinish?.(checklist, scenarioTitle, durationSeconds, heartsRemaining, maxHearts)
   }
 
   if (loading) {
@@ -255,17 +252,13 @@ function TrainingSession({ onNavigate, onChangePassword, onLogout, onFinish, sce
                   className="celebrate-mascot"
                 />
                 <p className="celebrate-title">
-                  {heartsExhausted
-                    ? '하트를 모두 써서 훈련이 끝났어요'
-                    : allCriteriaMet
-                      ? '모든 기준을 완료했어요!'
-                      : '훈련이 끝났어요!'}
+                  {heartsExhausted ? '하트를 모두 써서 훈련이 끝났어요' : '모든 기준을 완료했어요!'}
                 </p>
                 <p className="celebrate-sub">아래 버튼을 눌러 결과를 확인하세요.</p>
                 <button
                   type="button"
                   className="btn-primary celebrate-cta"
-                  onClick={() => onFinish?.(checklist, scenarioTitle, durationMinutes, heartsRemaining, maxHearts)}
+                  onClick={() => onFinish?.(checklist, scenarioTitle, durationSeconds, heartsRemaining, maxHearts)}
                 >
                   결과 화면으로 넘어가기
                 </button>

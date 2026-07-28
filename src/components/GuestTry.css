@@ -195,6 +195,24 @@
   font-size: 0.75rem;
   color: var(--color-text-secondary);
   flex-shrink: 0;
+}.guest-page .guest-hearts-block {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 20px;
+}.guest-page .guest-hearts-row {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}.guest-page .guest-heart {
+  font-size: 15px;
+  line-height: 1;
+}.guest-page .guest-heart.full {
+  color: #e0473d;
+}.guest-page .guest-hearts-hint {
+  margin: 0;
+  font-size: 11px;
+  color: var(--color-text-muted);
 }.guest-page .guest-session-grid {
   display: grid;
   grid-template-columns: 1.4fr 1fr;

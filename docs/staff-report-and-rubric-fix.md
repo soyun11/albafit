@@ -57,3 +57,25 @@
 - `TrainingSession.jsx`가 훈련 종료 시 이 값을 `onFinish`로 같이 넘기고, `App.jsx`가 `trainingResult`에 담아 `FeedbackReport`에 전달. 업종은 `src/lib/industries.js`의 `INDUSTRIES` 목록으로 라벨 변환(다른 화면들과 동일한 패턴).
 
 **검증**: 알바로 실제 훈련 하나(3턴) 끝까지 진행 → "총 훈련 시간"이 "18분"이 아니라 실제 경과 시간("1분")으로 뜨는 것 확인. `npm run lint` 통과.
+
+## 추가 결정 (2026-07-28) — 왜 리포트에만 훈련 시간이 뜨는가 + 분·초 표시
+
+"총 훈련 시간"을 왜 만들었는지, 왜 훈련 중에는 안 보여주고 리포트에만 보여주는지 질문이 나와서 정리한다.
+
+| 논점 | 결정 | 이유 |
+|---|---|---|
+| 왜 만들었나 | 리포트에 "총 훈련 시간" 항목 유지 | 위 5절에서 보듯 원래 목업(`ui/8_사장님리포트.png`)에 이미 있던 항목이었고, 처음엔 "18분" 고정값이었다가 실제 `completedAt - startedAt`으로 교체했다 — 이건 기존 기록에서 그대로 확인되는 사실이다. |
+| 왜 리포트에만 뜨고 훈련 중엔 안 뜨나 | 그대로 둔다(훈련 화면에 실시간 타이머 추가 안 함) | 이 값 자체가 `completedAt`(세션이 끝나야 생기는 값) 기준으로 계산되므로 훈련 진행 중엔 애초에 값이 존재하지 않는다. 추가로, 이 서비스는 재입력(하트)을 편하게 여러 번 시도해보라는 설계인데(`docs/multi-turn-conversation-fix.md`) 화면에 초시계가 째깍거리면 알바가 시간에 쫓겨 답을 서두르게 될 수 있어 그 설계 의도와 어긋난다고 판단했다. *(이 두 번째 이유는 코드나 커밋 기록으로 검증된 사실이 아니라, 기존 설계 방향에 비춰본 추정이다.)* |
+| 분만 있던 표시를 분+초로 | `durationMinutes`(분, 1분 미만 반올림) → `durationSeconds`(초, `Math.max(1, ...)` 바닥값 제거)로 이름과 단위를 바꾸고, 프론트에 `src/lib/formatDuration.js`를 새로 만들어 "M분 N초"(1분 미만이면 "N초"만)로 표시 | 분 단위만 있으면 1분 미만 훈련은 전부 "1분"으로 뭉개져서(바닥값 때문에) 짧은 세션끼리 구분이 안 됐다. 서버는 초 단위 숫자만 돌려주고 "M분 N초" 포맷팅은 프론트 전용 헬퍼로 뺐다 — server/`src`와 `src`(프론트)는 서로 코드를 import할 수 없는 별도 번들이라(CLAUDE.md), 표시 문자열 자체를 서버에서 만들어 내려주지 않는다. |
+
+### 구현
+
+- `server/src/lib/sessionTurns.js`의 `buildSessionReportPayload()`: `durationMinutes` 계산을 `durationSeconds = Math.round((completedAt - startedAt) / 1000)`로 교체(바닥값 제거 — 초 단위라 0초짜리도 정직하게 보여줄 수 있음).
+- `server/src/routes/sessions.js`의 턴 완료 응답도 동일하게 `durationSeconds`로 교체.
+- `src/lib/formatDuration.js`(신규): `formatDuration(totalSeconds)` — null이면 null, 1분 미만이면 "N초", 그 외 "M분 N초".
+- `TrainingSession.jsx` → `App.jsx` → `FeedbackReport.jsx`로 이어지는 `durationMinutes` prop/state 체인을 전부 `durationSeconds`로 리네임하고, `FeedbackReport.jsx`의 표시부만 `formatDuration(durationSeconds) ?? '—'`로 교체.
+
+### 검증
+
+- `npx vitest run`(프론트) + `server`쪽 `npx vitest run` 모두 통과 — `sessionTurns.test.js`의 기존 `durationMinutes` 단언을 `durationSeconds`(예: 5분 케이스 → `300`)로 갱신하고, `formatDuration.test.js`(신규)로 45초/1분23초/null 세 케이스 확인.
+- `npm run lint` 통과(기존에도 있던 `RulesInput.jsx` 경고 2건 외 신규 경고 없음).

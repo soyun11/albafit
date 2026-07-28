@@ -49,7 +49,7 @@ function MyProgress({ onNavigate, onChangePassword, onLogout }) {
               </div>
             </div>
 
-            <div className="section-label">최근 훈련 기록</div>
+            <div className="section-label">전체 훈련 기록</div>
             <div className="history-panel glass">
               {data.recentHistory.length === 0 ? (
                 <p className="progress-empty">아직 완료한 훈련이 없어요. 시나리오를 골라 첫 훈련을 시작해보세요.</p>
