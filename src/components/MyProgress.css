@@ -90,6 +90,8 @@
 .progress-page .history-panel {
   padding: 20px 22px;
   margin-bottom: 24px;
+  max-height: 420px;
+  overflow-y: auto;
 }
 .progress-page .history-row {
   display: flex;

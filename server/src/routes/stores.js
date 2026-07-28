@@ -635,7 +635,9 @@ router.get('/me/my-progress', requireAuth, requireRole('staff'), async (req, res
     const completed = sessions.filter((s) => s.status === 'completed')
     const completedTypes = new Set(completed.filter((s) => currentScenarioIds.has(s.scenarioId)).map((s) => s.scenarioId))
 
-    const recentHistory = buildRecentTrainingHistory(completed)
+    // 알바 본인 화면은 "최근 몇 개"가 아니라 전체 기록을 최신순으로 다 보여준다 — limit을 안 걸어
+    // buildRecentTrainingHistory의 정렬만 재사용한다.
+    const recentHistory = buildRecentTrainingHistory(completed, Infinity)
 
     return res.json({
       staffName: me?.name ?? null,
