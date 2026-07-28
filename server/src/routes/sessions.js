@@ -10,10 +10,6 @@ import { findOwnedTurn, applyOwnerCorrection, buildTurnCalibrationView } from '.
 
 const router = Router()
 
-// 오늘은 시나리오 하나당 이 턴 수를 채우면 훈련 종료로 본다. 프론트 mock(TrainingSession.jsx)의
-// "오프닝 + 2턴" 구조와 맞춘 값이라, 나중에 시나리오별로 다르게 하고 싶으면 이 상수를 분기하면 된다.
-const MAX_TURNS = 3
-
 // ============================================================
 // 훈련 세션 시작 — POST /api/sessions
 // 승인된 루브릭이 있는 시나리오에서만 시작할 수 있다("AI는 생성, 사장님은 승인" 게이트).
@@ -115,32 +111,25 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
     // 다시 답한다"는 전제를 서버가 직접 보장한다(클라이언트 상태가 어긋나도 DB엔 항상 일관되게 남음).
     const effectiveCustomerMessage = isRetry ? lastTurn.customerMessage : customerMessage
 
-    // 재입력이면 같은 turnNumber의 이전 시도들에서 이미 충족했던 기준을 모아 이번 채점에 반영한다 —
-    // 그래야 이미 잘한 부분을 재입력 채점에서 또 "미충족"이라고 지적하지 않는다.
-    const previouslyMetItems = isRetry
-      ? [
-          ...new Set(
-            session.sessionTurns
-              .filter((t) => t.turnNumber === turnNumber)
-              .flatMap((t) => t.evaluation?.metItems ?? [])
-              .filter((m) => m.met)
-              .map((m) => m.item)
-          ),
-        ]
-      : []
+    // 이 시도 이전까지(다른 turnNumber 전부 + 같은 turnNumber의 이전 재입력) 확정된 met 기준.
+    // pickFinalAttempts가 turnNumber별 "최종 확정 시도"만 골라주는데, 재입력 시도의 evaluation도
+    // 항상 그 시점까지의 누적 결과를 담고 있어서(아래 evaluateTurn이 previouslyMetItems를 강제
+    // 반영해 저장하므로) 이 한 번의 계산만으로 재입력 케이스까지 자연히 커버된다 — 예전엔 "같은 턴
+    // 재입력"과 "다른 턴"을 따로 계산했었다.
+    // AI 채점 프롬프트에도 그대로 넘긴다 — 안 넘기면 이전 턴에 이미 확인된 내용을 이번 턴 답변만
+    // 보고 "누락됐다"고 잘못 지적하는 피드백 문장이 나간다(체크리스트 자체는 늘 정확했지만, 화면에
+    // 보이는 자연어 피드백이 앞선 대화를 기억 못 하는 것처럼 보이던 문제).
+    const priorMetItems = new Set(
+      pickFinalAttempts(session.sessionTurns).flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
+    )
 
     const evaluation = await evaluateTurn({
       criteria: rubric.criteria,
       customerMessage: effectiveCustomerMessage,
       staffAnswer,
-      previouslyMetItems,
+      previouslyMetItems: [...priorMetItems],
     })
 
-    // 이 턴 이전까지(다른 turnNumber 전부 + 같은 turnNumber의 이전 재입력) 확정된 met 기준 —
-    // "이번 답이 여기에 없던 기준을 새로 채웠는가"(madeProgress)를 가리는 기준선이다.
-    const priorMetItems = new Set(
-      pickFinalAttempts(session.sessionTurns).flatMap((t) => t.evaluation?.metItems ?? []).filter((m) => m.met).map((m) => m.item)
-    )
     const madeProgress = evaluation.metItems.some((m) => m.met && !priorMetItems.has(m.item))
 
     const turn = await prisma.sessionTurn.create({
@@ -181,11 +170,11 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
     )
     const requiredItems = rubric.criteria.filter((c) => c.required).map((c) => c.item)
 
-    const outcome = decideTurnOutcome({ madeProgress, everMetItems, requiredItems, turnNumber, maxTurns: MAX_TURNS, heartsExhausted })
+    const outcome = decideTurnOutcome({ madeProgress, everMetItems, requiredItems, heartsExhausted })
     const { retryNeeded, completed, allCriteriaMet } = outcome
 
     let nextCustomerMessage = null
-    let durationMinutes = null
+    let durationSeconds = null
 
     if (completed) {
       const completedAt = new Date()
@@ -194,9 +183,10 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
         data: { status: 'completed', completedAt },
       })
       // 리포트 화면의 "총 훈련 시간" — 예전엔 "18분"으로 고정돼있던 값을 실제 시작~완료 시각 차이로 계산.
-      durationMinutes = Math.max(1, Math.round((completedAt - session.startedAt) / 60000))
+      durationSeconds = Math.round((completedAt - session.startedAt) / 1000)
     } else if (!retryNeeded) {
-      // 진전은 있었지만 아직 필수 기준을 다 못 채웠고 턴 한도도 안 됐다 — 손님이 다음 대사를 한다.
+      // 진전은 있었지만 아직 필수 기준을 다 못 채웠다 — 손님이 다음 대사를 한다. 턴 개수 자체에는
+      // 상한이 없다(하트가 나쁜 시도를, allCriteriaMet이 충분한 진전을 이미 책임진다).
       // 손님 에이전트에는 화면에 실제로 보인 대화 그대로 넘긴다 — 재입력으로 답이 여러 번
       // 나뉘었어도(방금 만든 turn까지 포함) 그 시도들을 다 포함해야, 손님이 이미 들은 내용을
       // 다시 캐묻지 않는다(pickFinalAttempts는 리포트 집계처럼 "최종 결론 하나"만 필요할 때만 쓴다).
@@ -219,7 +209,7 @@ router.post('/:id/turns', requireAuth, async (req, res) => {
       heartsRemaining,
       maxHearts,
       heartsExhausted,
-      durationMinutes,
+      durationSeconds,
     })
   } catch (err) {
     console.error(err)

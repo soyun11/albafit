@@ -42,11 +42,14 @@ const SYSTEM_PROMPT = `너는 매장 응대 교육 서비스의 채점관이다.
  */
 export async function evaluateTurn({ criteria, customerMessage, staffAnswer, previouslyMetItems = [] }) {
   const previouslyMetSet = new Set(previouslyMetItems)
-  // 재입력(같은 손님 질문에 다시 답하는 것) 시 이전 시도에서 이미 충족한 항목을 다시 미충족으로
-  // 판단하지 않도록 프롬프트에 명시한다 — 아래에서 LLM 응답을 그대로 믿지 않고 코드로도 강제한다.
+  // 재입력이든(같은 질문 다시 답하기) 이전 턴이든(다른 손님 질문이었지만 대화 어딘가에서 이미
+  // 다룸) 이미 충족한 항목은 다시 미충족으로 판단하지 않도록 프롬프트에 명시한다 — 아래에서 LLM
+  // 응답을 그대로 믿지 않고 코드로도 강제한다. feedback 문장에서 "안내가 안 됐다"고 지적하지
+  // 말라는 지시도 같이 넣는다 — 안 넣으면 met_items는 강제로 true로 고쳐지는데 feedback 텍스트는
+  // 여전히 "누락됐다"고 써서, 화면에 보이는 대화 기록과 모순되는 피드백이 나갔었다.
   const previouslyMetText =
     previouslyMetItems.length > 0
-      ? `\n\n아래 항목은 같은 손님 질문에 대한 이전 시도(재입력 전)에서 이미 충족한 것으로 확인됐다. 이번 답변에서 다시 언급되지 않았더라도 met: false로 판단하지 말고 met: true로 표시해라. 나머지 기준만 이번 답변 기준으로 새로 채점해라:\n${previouslyMetItems.map((item) => `- ${item}`).join('\n')}`
+      ? `\n\n아래 항목은 이 대화의 앞선 턴에서 이미 충족한 것으로 확인됐다(이번에 처음 보는 답변이 아니어도 된다). 이번 답변에서 다시 언급되지 않았더라도 met: false로 판단하지 말고 met: true로 표시해라. feedback에는 이 항목들이 "누락됐다"거나 "안내되지 않았다"고 절대 쓰지 마라 — 이미 이전 턴에서 확인된 내용이다. feedback은 이번 답변에서 새롭게 잘한 점이나 부족한 점에만 집중해서 써라. 나머지 기준만 이번 답변 기준으로 새로 채점해라:\n${previouslyMetItems.map((item) => `- ${item}`).join('\n')}`
       : ''
 
   const prompt = `${SYSTEM_PROMPT}

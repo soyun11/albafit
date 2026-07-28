@@ -85,14 +85,14 @@ describe('buildSessionReportPayload', () => {
     expect(result.staffName).toBe('검증알바')
     expect(result.industry).toBe('cafe')
     expect(result.scenarioTitle).toBe('품절 메뉴 대처')
-    expect(result.durationMinutes).toBe(5)
+    expect(result.durationSeconds).toBe(300)
     expect(result.checklist).toEqual([
       { label: 'ETA 안내', status: 'ok' },
       { label: '사과 표현', status: 'wait' },
     ])
   })
 
-  it('completedAt이 없으면 durationMinutes는 null이다', () => {
+  it('completedAt이 없으면 durationSeconds는 null이다', () => {
     const session = {
       id: 's1',
       startedAt: new Date('2026-07-22T00:00:00.000Z'),
@@ -103,7 +103,7 @@ describe('buildSessionReportPayload', () => {
 
     const result = buildSessionReportPayload({ session, staffName: '검증알바', industry: null })
 
-    expect(result.durationMinutes).toBeNull()
+    expect(result.durationSeconds).toBeNull()
     expect(result.checklist).toEqual([])
   })
 })
@@ -142,8 +142,6 @@ describe('decideTurnOutcome', () => {
       madeProgress: false,
       everMetItems: new Set(),
       requiredItems,
-      turnNumber: 1,
-      maxTurns: 3,
       heartsExhausted: true,
     })
 
@@ -155,21 +153,17 @@ describe('decideTurnOutcome', () => {
       madeProgress: false,
       everMetItems: new Set(),
       requiredItems,
-      turnNumber: 1,
-      maxTurns: 3,
       heartsExhausted: false,
     })
 
     expect(result).toEqual({ retryNeeded: true, completed: false, allCriteriaMet: false })
   })
 
-  it('일부 기준만 새로 채웠고 턴 한도 전이면 재입력 없이 다음 손님 대사로 넘어간다', () => {
+  it('일부 기준만 새로 채웠으면 재입력 없이 다음 손님 대사로 넘어간다(턴 개수엔 상한이 없다)', () => {
     const result = decideTurnOutcome({
       madeProgress: true,
       everMetItems: new Set(['사과']), // '안내'는 아직 미충족
       requiredItems,
-      turnNumber: 1,
-      maxTurns: 3,
       heartsExhausted: false,
     })
 
@@ -181,24 +175,9 @@ describe('decideTurnOutcome', () => {
       madeProgress: true,
       everMetItems: new Set(['사과', '안내']),
       requiredItems,
-      turnNumber: 1,
-      maxTurns: 3,
       heartsExhausted: false,
     })
 
     expect(result).toEqual({ retryNeeded: false, completed: true, allCriteriaMet: true })
-  })
-
-  it('필수 기준을 다 못 채웠어도 턴 한도에 도달하면 강제 종료된다', () => {
-    const result = decideTurnOutcome({
-      madeProgress: true,
-      everMetItems: new Set(['사과']),
-      requiredItems,
-      turnNumber: 3,
-      maxTurns: 3,
-      heartsExhausted: false,
-    })
-
-    expect(result).toEqual({ retryNeeded: false, completed: true, allCriteriaMet: false })
   })
 })
