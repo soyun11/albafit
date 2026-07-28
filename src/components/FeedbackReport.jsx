@@ -5,6 +5,7 @@ import mascotApprove from '../../img/mascot-approve.png'
 import mascotConfused from '../../img/mascot-confused.png'
 import mascotCoach from '../../img/mascot-coach.png'
 import { INDUSTRIES } from '../lib/industries'
+import { formatDuration } from '../lib/formatDuration'
 
 // 실제 훈련 세션 없이 대시보드에서 과거 리포트를 볼 때 쓰는 기본 mock 데이터
 const DEFAULT_ITEMS = [
@@ -43,7 +44,7 @@ function FeedbackReport({
   onRetry,
   checklist,
   scenarioTag,
-  durationMinutes,
+  durationSeconds,
   industry,
   heartsRemaining,
   maxHearts,
@@ -116,7 +117,7 @@ function FeedbackReport({
             <span>교정 피드백</span>
           </div>
           <div className="metric glass">
-            <b>{durationMinutes != null ? `${durationMinutes}분` : '—'}</b>
+            <b>{formatDuration(durationSeconds) ?? '—'}</b>
             <span>총 훈련 시간</span>
           </div>
         </div>

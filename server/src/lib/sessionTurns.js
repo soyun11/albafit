@@ -114,16 +114,14 @@ function summarizeSessionTurns(sessionTurns) {
 export function buildSessionReportPayload({ session, staffName, industry }) {
   const { allLabels, metLabels, maxHearts, heartsRemaining } = summarizeSessionTurns(session.sessionTurns)
   const checklist = [...allLabels].map((label) => ({ label, status: metLabels.has(label) ? 'ok' : 'wait' }))
-  const durationMinutes = session.completedAt
-    ? Math.max(1, Math.round((session.completedAt - session.startedAt) / 60000))
-    : null
+  const durationSeconds = session.completedAt ? Math.round((session.completedAt - session.startedAt) / 1000) : null
 
   return {
     sessionId: session.id,
     checklist,
     scenarioTitle: session.scenario.title,
     staffName,
-    durationMinutes,
+    durationSeconds,
     industry,
     heartsRemaining,
     maxHearts,
