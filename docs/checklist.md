@@ -175,7 +175,9 @@
 - [x] **soyun11/hub#13 온보딩 미완료 상태 가드 → 방향 전환, soyun11/hub#23으로 대체** `완료` — 처음엔 배너로 안내만 하려 했으나, 논의 중 "업종별 기본 매뉴얼을 매장 생성 즉시 승인된 상태로 심어서 콜드스타트 자체를 없애자"는 방향으로 전환. `server/src/lib/defaultScenarios.js`(TDD) + `POST /api/stores` 시딩(독립 try/catch) + `GET /me/training-scenarios`의 `isDefault` 필드 + `ScenarioSelect.jsx` "기본" 배지. curl로 실제 프로덕션 DB에서 "규칙 미제출 상태로 알바가 바로 훈련 시작 가능" 확인. 처음엔 카페만 채웠다가 **6개 업종 전부로 확장**(기존 `industryScenarios.js`/`customerAgent.js` 문장 재사용, criteria만 새로 작성 — 테스트 110개+lint 통과, `beauty` 업종 curl로 실제 확인). 각 훈련 화면 기준 목록엔 "필수"/"선택" 배지, 하트 안내 문구도 필수·선택 구분 없이 동작함을 명시하도록 수정(`docs/retry-loop-and-hearts.md`). 설계·구현·검증은 `docs/default-manual-scenarios.md`. 배너(`OnboardingBanner.jsx`)는 폐기, #13 이슈는 종료
 - [x] soyun11/hub#8 잔여 항목 중 시나리오 배치 생성 트랜잭션 묶기(`prisma.$transaction`) `완료` — TDD로 `server/src/lib/ruleSubmission.js`(`submitRuleBatch`) 작성, RED→GREEN 테스트 6개(중간 실패 시 전체 rollback되는 핵심 케이스 포함). `stores.js`의 `POST /:linkKey/rules`를 "AI 호출로 batch 준비 → `prisma.$transaction`으로 DB 쓰기 한 번" 구조로 재작성(재사용·신규생성 두 경로 다 적용). 서버 테스트 103개+lint 통과. 설계·검증 근거는 `docs/rule-submission-transaction.md`
 - [x] 이번 주에 끝낼 것과 미룰 것 구분 — soyun11/hub#9(UI 디테일), #14(알바 계정 관리 보강)는 골든 패스 밖이라 이번 주는 보류(각 이슈에 근거 기록). 사진 업로드+OCR(Claude Vision)도 논의됐으나 새 AI 프로바이더 통합이 필요한 별도 작업이라 "여유 시"로 계속 유지
-- [ ] `showcase.json` 오늘 변경분 반영 (매일 갱신)
+- [x] `showcase.json` 오늘 변경분 반영 (매일 갱신) — 업종별 기본 매뉴얼 기능 bullet 추가
+- [x] **게스트 체험모드 400 레이스컨디션 수정** (원래 7/29 계획, 오늘로 앞당겨 완료) `soyun11/hub#17` — 손님 다음 대사가 붙기 전에 재제출하면 나던 400을, 게스트 투어를 정적 가이드 투어로 전면 재설계하면서 자유 타이핑 경로 자체를 없애 근본 해소. `docs/guest-tour-redesign.md`
+- [x] **AI 손님이 알바 답변에 진전이 있어도 다음 대사를 안 하던 버그 발견·수정** (오늘 대화 중 발견, 계획에 없던 항목) — 턴 통과 판정이 세션 완료 조건과 동일해서 손님이 두 번째 대사를 할 코드 경로가 항상 죽어 있었음. `decideTurnOutcome()`으로 분리해 TDD 검증, 브라우저 실제 재현으로 확인. `docs/multi-turn-conversation-fix.md`
 
 ### 7/28 (화) — 배포 상태 재검증 + Agent 워크플로우 다이어그램 + 부스 A3 초안 `soyun11/hub#16, #18, #22`
 - [ ] 프로덕션 환경변수(DATABASE_URL/OPENAI_API_KEY/GEMINI_API_KEY/JWT_SECRET/RESEND_* 등)가 전부 Production 값인지 재확인
@@ -188,7 +190,7 @@
 - [ ] `showcase.json` 오늘 변경분 반영
 
 ### 7/29 (수) — 게스트 체험모드 버그 수정 + 부족 기능 보완 + 재배포 + 워크플로우 문서 + 영상 제출 `soyun11/hub#17, #18, #19`
-- [ ] **게스트 체험 모드(로그인 없는 "체험하기") 400 레이스컨디션 수정 — 필수**. 손님 다음 대사가 붙기 전(600ms `setTimeout` 중) 답을 또 제출하면 `guest.js`에서 400. 로그인 없이 바로 눌러보는 화면이라 부스 방문객이 직접 써볼 가능성이 높아 이번 주 반드시 처리(`GuestTry.jsx`의 `submitting` 해제 시점 조정 또는 `ERROR_MESSAGES_KO` 매핑 추가)
+- [x] ~~게스트 체험 모드 400 레이스컨디션 수정~~ — 7/27로 앞당겨 완료(위 7/27 섹션 참고)
 - [ ] 그 외 4주차-2 검증에서 발견된 문제, 또는 soyun11/hub#9 중 골든 패스에 걸리는 항목만 시간 되는 만큼 처리 (AppNav 미저장 경고, 가짜 공유 버튼 등)
 - [ ] 수정분 Vercel 재배포 후 프로덕션 재확인 (게스트 체험 화면 포함)
 - [ ] `docs/ai-workflow.md`에 "배포 과정과 확인 기준"(7/28 절차) 추가
