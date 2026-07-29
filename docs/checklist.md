@@ -180,14 +180,14 @@
 - [x] **AI 손님이 알바 답변에 진전이 있어도 다음 대사를 안 하던 버그 발견·수정** (오늘 대화 중 발견, 계획에 없던 항목) — 턴 통과 판정이 세션 완료 조건과 동일해서 손님이 두 번째 대사를 할 코드 경로가 항상 죽어 있었음. `decideTurnOutcome()`으로 분리해 TDD 검증, 브라우저 실제 재현으로 확인. `docs/multi-turn-conversation-fix.md`
 
 ### 7/28 (화) — 배포 상태 재검증 + Agent 워크플로우 다이어그램 + 부스 A3 초안 `soyun11/hub#16, #18, #22`
-- [ ] 프로덕션 환경변수(DATABASE_URL/OPENAI_API_KEY/GEMINI_API_KEY/JWT_SECRET/RESEND_* 등)가 전부 Production 값인지 재확인
-- [ ] 비밀 키가 GitHub에 커밋되지 않았는지 재확인
-- [ ] `GET /api/health` 프로덕션 응답 확인
-- [ ] 골든 패스를 프로덕션 URL(`https://albafit.kr`)에서 브라우저로 재확인 (온보딩 가드·트랜잭션 수정분 반영 여부 포함)
-- [ ] 실패 시 Vercel 로그를 읽고 원인을 이슈에 기록
-- [ ] **Agent·Skill·규칙 문서 관계 mermaid 다이어그램 완성** — 부스 A3 자료가 이 다이어그램을 그대로 쓰므로 오늘 안에 끝내야 함
-- [ ] **부스 A3 자료 2장(프로젝트 소개, AI Agent Workflow 소개) 초안 작성 시작** — 목표: 오늘 안에 거의 완성
-- [ ] `showcase.json` 오늘 변경분 반영
+- [x] 프로덕션 환경변수(DATABASE_URL/OPENAI_API_KEY/GEMINI_API_KEY/JWT_SECRET/RESEND_* 등)가 전부 Production 값인지 재확인 — `vercel env ls production`으로 9개 전부 등록 확인 + 실제 로그인·AI 호출·DB 동작으로 기능적으로도 확인(7/29로 이월돼 완료)
+- [x] 비밀 키가 GitHub에 커밋되지 않았는지 재확인 — 우리 저장소(`origin`, soyun11/hub)엔 없음 확인
+- [x] `GET /api/health` 프로덕션 응답 확인 — 정상
+- [x] 골든 패스를 프로덕션 URL(`https://albafit.kr`)에서 브라우저로 재확인 (온보딩 가드·트랜잭션 수정분 반영 여부 포함) — 완전히 새로운 사장님 회원가입→이메일 인증 배너→매장 생성→카페 기본 규정 카드까지 실제로 확인(테스트 계정은 확인 후 삭제). 기존 데모 계정으로 전체 훈련 기록·리포트 등도 별도 확인(7/29로 이월돼 완료)
+- [x] 실패 시 Vercel 로그를 읽고 원인을 이슈에 기록 — 실패 케이스는 없었으나, 배포 자체가 6일간 안 되고 있던 문제를 발견해 `docs/deployment.md`에 기록(7/29)
+- [x] **Agent·Skill·규칙 문서 관계 mermaid 다이어그램 완성** — 부스 A3 자료가 이 다이어그램을 그대로 쓰므로 오늘 안에 끝내야 함
+- [x] **부스 A3 자료 2장(프로젝트 소개, AI Agent Workflow 소개) 초안 작성 시작** — 목표: 오늘 안에 거의 완성
+- [x] `showcase.json` 오늘 변경분 반영 — `demoUrl`을 `albafit.kr`로 갱신(7/29)
 
 ### 7/29 (수) — 게스트 체험모드 버그 수정 + 부족 기능 보완 + 재배포 + 워크플로우 문서 + 영상 제출 `soyun11/hub#17, #18, #19`
 - [x] ~~게스트 체험 모드 400 레이스컨디션 수정~~ — 7/27로 앞당겨 완료(위 7/27 섹션 참고)

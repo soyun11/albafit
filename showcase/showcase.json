@@ -3,7 +3,7 @@
   "title": "albafit — 매장 맞춤 AI 알바 훈련 서비스",
   "summary": "매장 맞춤 AI 롤플레잉 트레이너 & 실시간 교정 피드백 에이전트가 신입 알바를 첫날부터 전문가로 만듭니다.",
   "githubUser": "soyun11(박소윤)",
-  "demoUrl": "https://hub-ten-virid.vercel.app",
+  "demoUrl": "https://albafit.kr",
   "thumbnail": "thumbnail.webp",
   "screenshots": [
     "screenshots/dashboard.webp",
