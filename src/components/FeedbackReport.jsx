@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import './FeedbackReport.css'
 import AppNav from './AppNav'
 import mascotApprove from '../../img/mascot-approve.png'
@@ -56,8 +55,6 @@ function FeedbackReport({
   onChangePassword,
   onLogout,
 }) {
-  const [shared, setShared] = useState(false)
-
   const items = checklist ? buildItemsFromChecklist(checklist) : DEFAULT_ITEMS
   const passedCount = items.filter((item) => item.status === 'ok').length
   // 점수는 훈련 중 남은 하트 비율로 매긴다(기준을 하나도 못 채운 답변에서만 하트가 깎이는 방식) —
@@ -75,11 +72,6 @@ function FeedbackReport({
   const summaryLine = scenarioTag
     ? `${industryLabel} 기준 · ${scenarioTag} 시나리오 완료`
     : `${industryLabel} 기준 8개 상황 완료`
-
-  function handleShare() {
-    setShared(true)
-    setTimeout(() => setShared(false), 1500)
-  }
 
   return (
     <div className="report-page">
@@ -157,13 +149,9 @@ function FeedbackReport({
               다시 훈련하기
             </button>
           )}
-          {onCalibrate ? (
+          {onCalibrate && (
             <button type="button" className="btn-primary" onClick={onCalibrate}>
               AI 채점 검토하기
-            </button>
-          ) : (
-            <button type="button" className="btn-primary" onClick={handleShare}>
-              {shared ? '공유됐어요!' : '리포트 사장님께 공유'}
             </button>
           )}
         </div>
