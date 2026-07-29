@@ -214,6 +214,7 @@
 - [ ] MCP 전환 (`get_store_rules`/`get_rubric`/`save_session_turn`/`get_session_report`, plan.md 5-6) — *코어(A+B)·배포가 끝난 뒤에만 손댄다는 원칙 유지, 캠프 종료 후로 이월 가능*
 - [ ] 규칙·시나리오 초안 자동 생성 (업종 템플릿 → AI 초안), AI 초안 승인/수정 UX 다듬기
 - [ ] **매뉴얼 사진 → 규칙 초안** — Claude Sonnet 5의 비전 입력으로 사진을 바로 읽어 규칙 텍스트를 뽑는다 (plan.md 5-3)
+- [ ] **매장명 입력 UI** — `POST /api/stores`는 `name` 필드를 이미 받지만(`stores.name`, nullable) 실제 온보딩 화면(`IndustrySelect`→`handleIndustryNext`)은 `industry`만 보내서 실제 매장은 전부 `name = null`. 프론트 어디에도 `store.name`을 표시하는 곳이 없어서, 입력 UI를 추가하려면 표시할 곳(대시보드 헤더 등)도 같이 설계해야 의미가 있음. 데모 매장(관리자 스크립트로 생성)만 예외적으로 이름이 채워져 있음(2026-07-29 발견)
 
 **4주차 완료 기준**: 골든 패스가 프로덕션(`https://albafit.kr`)에서 끊김 없이 시연 가능하고(게스트 체험 모드 포함), 5분 미만 데모 영상이 `showcase.json`에 반영되어 PR로 제출돼 있으며, Agent·Skill·규칙 문서 활용 방식을 다이어그램으로 설명할 수 있고, 부스 A3 자료가 목요일 낮 12시 기한 내 제출되어 있다. FE+BE 배포는 3주차 수요일에 이미 완료(`docs/deployment.md`). 학생대표발표(PPT)는 이 프로젝트 범위 아님(부스 전시만 진행).
 
