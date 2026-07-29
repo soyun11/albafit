@@ -3,11 +3,14 @@
   "title": "albafit — 매장 맞춤 AI 알바 훈련 서비스",
   "summary": "매장 맞춤 AI 롤플레잉 트레이너 & 실시간 교정 피드백 에이전트가 신입 알바를 첫날부터 전문가로 만듭니다.",
   "githubUser": "soyun11(박소윤)",
-  "demoUrl": "https://hub-ten-virid.vercel.app",
+  "demoUrl": "https://albafit.kr",
+  "demoVideoUrl": "https://www.youtube.com/watch?v=mN9jOOq1C40",
   "thumbnail": "thumbnail.webp",
   "screenshots": [
     "screenshots/dashboard.webp",
-    "screenshots/training.webp"
+    "screenshots/rubric.webp",
+    "screenshots/training.webp",
+    "screenshots/report.webp"
   ],
   "problem": "소상공인 매장은 알바 교체가 잦고 메뉴·규칙도 수시로 바뀌는데, 사장님은 새 알바마다 응대 기준을 반복 설명할 시간과 여력이 없습니다. 그 결과 누가 언제 일하느냐에 따라 응대 품질이 들쭉날쭉해집니다.",
   "targetUsers": [
@@ -28,16 +31,20 @@
   ],
   "techStack": [
     "React",
+    "Vite",
     "Express",
     "PostgreSQL",
     "Prisma",
+    "Supabase",
+    "Vercel",
     "OpenAI API",
     "Gemini API"
   ],
   "techHighlights": [
     "손님 역할(OpenAI gpt-4o-mini)과 채점(Gemini)을 분리해, 할루시네이션 위험이 큰 채점 쪽에 JSON 스키마 강제와 파싱 방어 로직을 집중시켰습니다.",
     "매장 규칙을 루브릭(닫힌 채점표)으로 먼저 변환한 뒤 그 기준으로만 채점해, AI가 규칙을 임의로 해석하는 걸 막습니다.",
-    "핵심 로직(루브릭 재사용, 평가 교차검증, AI 응답 파싱 방어 등)을 TDD로 테스트 먼저 작성 후 구현했습니다."
+    "핵심 로직(루브릭 재사용, 평가 교차검증, AI 응답 파싱 방어 등)을 TDD로 테스트 먼저 작성 후 구현했습니다.",
+    "실사용 중 발견한 버그를 원인부터 고쳤습니다 — 예: 알바가 답변을 잘해도 손님이 다음 말을 안 하던 버그는 '턴 통과 조건'과 '세션 종료 조건'이 같아서 생긴 문제였고, 하트(재시도 예산)가 이미 그 역할을 하고 있다는 걸 확인한 뒤 턴 상한 자체를 없애 해결했습니다."
   ],
   "developmentWithAI": "저는 문제 정의(소상공인 알바 교육 공백)와 핵심 기능 우선순위, 손님 역할·채점 역할을 다른 모델로 분리하는 것 같은 설계 결정을 직접 정했습니다. Claude Code와는 Plan Mode로 구현 계획을 같이 검토하고, TDD로 테스트를 먼저 쓴 뒤 코드를 만들었습니다. 기능이 실제로 동작하는지는 브라우저로 직접 눌러보거나 feature-verifier 에이전트로 검증했고, 버그를 발견하면 같이 원인을 찾아 고쳤습니다.",
   "agent": {
@@ -57,6 +64,11 @@
         "type": "skill",
         "name": "test-writer",
         "purpose": "Vitest 테스트 작성 규칙(파일 위치·mock 패턴)을 통일합니다."
+      },
+      {
+        "type": "skill",
+        "name": "default-design",
+        "purpose": "새 화면·컴포넌트를 만들 때 컬러·폰트·모서리·여백 토큰을 통일합니다."
       }
     ],
     "workflows": [

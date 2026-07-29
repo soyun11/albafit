@@ -452,8 +452,10 @@ router.get('/me/staff-report', requireAuth, requireRole('owner'), async (req, re
       // "최근 점수" = 가장 최근에 끝낸 세션의 하트 잔량 비율(남은 하트 / 총 하트). 훈련 화면에서
       // 알바가 보는 점수와 같은 기준이어야 목록·상세화면 점수가 서로 다르게 보이지 않는다 —
       // /me/staff/:id/latest-report도 정확히 같은 방식(computeHearts)으로 맞춘다.
+      // completedTypes와 똑같이 currentScenarioIds로 범위를 좁힌다 — 안 그러면 "기준 재설정" 직후
+      // "0/N 완료"인데 "최근 점수"는 재설정 전 예전 배치의 점수가 그대로 남아있는 것처럼 보인다.
       let score = null
-      const latestSession = completed[0]
+      const latestSession = completed.find((s) => currentScenarioIds.has(s.scenarioId))
       if (latestSession) {
         const { maxHearts, heartsRemaining } = computeHearts(latestSession.sessionTurns)
         if (maxHearts > 0) {
@@ -633,17 +635,21 @@ router.get('/me/my-progress', requireAuth, requireRole('staff'), async (req, res
     const totalCount = scenarios.length
     const currentScenarioIds = new Set(scenarios.map((s) => s.id))
     const completed = sessions.filter((s) => s.status === 'completed')
-    const completedTypes = new Set(completed.filter((s) => currentScenarioIds.has(s.scenarioId)).map((s) => s.scenarioId))
+    const completedInCurrentBatch = completed.filter((s) => currentScenarioIds.has(s.scenarioId))
+    const completedTypes = new Set(completedInCurrentBatch.map((s) => s.scenarioId))
 
     // 알바 본인 화면은 "최근 몇 개"가 아니라 전체 기록을 최신순으로 다 보여준다 — limit을 안 걸어
     // buildRecentTrainingHistory의 정렬만 재사용한다.
     const recentHistory = buildRecentTrainingHistory(completed, Infinity)
+    // "최근 점수"는 completedCount/totalCount와 똑같이 최신 배치로 범위를 좁힌다 — 안 그러면 "기준
+    // 재설정" 직후 "0/N 완료"인데 최근 점수는 재설정 전 예전 배치 점수가 그대로 남아있게 된다.
+    const latestScore = buildRecentTrainingHistory(completedInCurrentBatch, 1)[0]?.score ?? null
 
     return res.json({
       staffName: me?.name ?? null,
       completedCount: completedTypes.size,
       totalCount,
-      latestScore: recentHistory[0]?.score ?? null,
+      latestScore,
       recentHistory,
     })
   } catch (err) {

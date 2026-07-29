@@ -43,7 +43,7 @@ export async function proposeScenarios({ rawRulesText, industry }) {
 ${rawRulesText}
 """
 
-이 규정을 바탕으로 실전 훈련에 쓸 만한 서로 다른 상황을 3~5개 뽑아라.`
+이 규정을 바탕으로 실전 훈련에 쓸 만한 서로 다른 상황을, 개수 제한 없이 규정 내용에 맞는 만큼 빠짐없이 뽑아라. 규정이 짧으면 적게, 다루는 상황이 많으면 그만큼 많이 — 개수를 억지로 맞추지 않는다.`
 
   const response = await withRetry(() =>
     gemini.models.generateContent({
@@ -63,6 +63,7 @@ ${rawRulesText}
     throw new Error('failed to propose any scenarios from the given rules')
   }
 
-  // 폭주 방지 — 프롬프트로 3~5개를 요청하지만, 응답이 예상보다 많이 와도 여기서 상한을 강제한다.
-  return scenarios.slice(0, 6)
+  // 폭주 방지 — 프롬프트에 개수 제한을 안 둬서(매장 규정 내용에 맞는 만큼 뽑게) AI가 비정상적으로
+  // 많이 돌려주는 경우에 대비한 안전장치만 남긴다. 실제 매장 규정이라면 이 상한에 걸릴 일이 없다.
+  return scenarios.slice(0, 20)
 }
